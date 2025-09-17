@@ -39,6 +39,3 @@ for i in range(1, len(peptide)):
     y_fragment = peptide[-i:]
     y_mass = calc_mass(y_fragment, include_water=True)
     print(f"y{i:<6} {y_fragment:<12} {y_mass:>14.4f}")
-
-    #jj
-
