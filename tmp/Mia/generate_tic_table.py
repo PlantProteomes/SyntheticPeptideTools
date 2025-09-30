@@ -26,7 +26,7 @@ def main():
     with mzml.read(args.mzml_file) as reader:
         for spectrum in reader:
             if spectrum['ms level'] == 1:
-                scan_number = spectrum['id'] if 'id' in spectrum else None
+                scan_number = int(spectrum['id'].split('=')[-1]) if 'id' in spectrum else None
                 scan_time = spectrum['scanList']['scan'][0]['scan start time'] if 'scanList' in spectrum else None
                 tic = sum(spectrum['intensity array']) if 'intensity array' in spectrum else 0
                 tic_data.append({
@@ -50,3 +50,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
