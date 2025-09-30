@@ -5,7 +5,6 @@ import csv
 from pyteomics import mzml
 
 def main():
-    # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Generate a TIC table from an mzML file')
     parser.add_argument('--mzml_file', required=True, help='Name of the mzML file to read')
     parser.add_argument('--output', default=None, help='Output CSV/TSV/XLSX file (default: same root as mzML)')
@@ -49,4 +48,5 @@ def main():
     print(f"INFO: Elapsed time: {t1 - t0:.2f} seconds")
 
 if __name__ == "__main__":
+
     main()
