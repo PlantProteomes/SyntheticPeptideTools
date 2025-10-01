@@ -88,9 +88,9 @@ class GenerateMS2Table:
 
                 scan_number = int(row['scan number'])
                 annotation_data = {"confidence" : row["confidence"],
-                                   "annotation" : row["annotation"],
                                    "modification" : row["modification"],
-                                   "usi" : row["usi"]}
+                                   "usi" : row["usi"],
+                                   "comments" : row["annotation"]}
                 annotations[scan_number] = annotation_data
 
         print("Length of annotated file:", len(annotations))
@@ -103,7 +103,7 @@ class GenerateMS2Table:
                 row.update(annotations[scan_number])
 
     def write_csv(self):
-        fieldnames = ["file root", "scan number", "scan time", "total ion current", "precursor m/z", "precursor charge", "precursor mass delta", "confidence", "annotation", "modification", "usi"]
+        fieldnames = ["file root", "scan number", "scan time", "total ion current", "precursor m/z", "precursor charge", "precursor mass delta", "confidence", "modification", "usi", "comments"]
         with open("ms2_table.csv", "w", newline="") as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
