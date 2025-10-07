@@ -100,11 +100,16 @@ class GenerateMS2Table:
         print("Number of spectra before merging:", len(self.spectra))
 
         # merges annotations to final spectra list
+        blank_annotation_data = {"confidence" : "",
+                                 "modification" : "",
+                                 "usi" : "",
+                                 "comments" : ""}
         for row in self.spectra:
             scan_number = row['scan number']
             if scan_number in annotations:
                 row.update(annotations[scan_number])
-
+            else:
+                row.update(blank_annotation_data)
         print("Length of merged file:", len(self.spectra))
 
     # creates new merged csv file
@@ -142,11 +147,19 @@ class GenerateMS2Table:
         ax.set_ylim(0, 100000000)
         for i in tallest.index:
             x = tallest['scan number'][i]
+            if self.spectra[i]["modification"] != "":
+                label = str(x) + "\n" + self.spectra[i]["modification"]
+            else:
+                label = str(x)
             if tallest['total ion current'][i] > 0.95e8:
-                y = 0.95e8
+                if self.spectra[i]["modification"] != "":
+                    y = 0.925e8
+                else:
+                    y = 0.95e8
             else:
                 y = tallest['total ion current'][i]
-            ax.annotate(str(x), xy = (x, y), xycoords="data", textcoords="data", size=7)
+            ax.annotate(label, xy = (x, y), xycoords="data", textcoords="data", size=7, rotation = 45, rotation_mode = 'anchor')
+            # rotation = 45, rotation_mode = 'anchor')
         plt.suptitle("Total Ion Current vs. Scan Number (Top 20 Labelled and Annotated)")
         plt.savefig('ms2_plot_zoomed.png')
 
