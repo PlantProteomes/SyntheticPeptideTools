@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 csv_file = (r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\NEW_250402_mEclipse_QC_ncORF-089_TIC.csv")
+ms2_csv_file = (r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\ms2_table.csv")
 
 scan_numbers = []
 tic_values = []
@@ -13,17 +14,43 @@ with open(csv_file, 'r') as f:
         scan_numbers.append(int(row['ScanNumber']))
         tic_values.append(float(row['TIC']))
 
-"""
-scans_to_annotate = [2880]
+ms2_scan_numbers = []
+ms2_tic_values = []
 
-for scan_to_annotate in scans_to_annotate:
-    counter = 0
-    for scan in scan_numbers:
-        if scan > scan_to_annotate:
-            break
-        counter += 1
-    plt.text(scan_to_annotate, tic_values[counter], f'Scan {scan}', color='black')
-"""
+with open(ms2_csv_file, 'r') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        ms2_scan_numbers.append(int(row['scan number']))
+        ms2_tic_values.append(float(row['total ion current']))
+
+scan_labels = {
+    2880: "deamidation",
+    2748: "missing Q",
+    2770: "dipeptide",
+    2766: "dipeptide",
+    2767: "loss of S",
+    2703: "Gln->Gly",
+    2762: "dipeptide",
+    2525: "missing AQD + Propionamide",
+    2812: "missing AQ",
+    2810: "Propionamide",
+    3616: "missing AQD + biotin",
+    2701: "missing AQ + SMA",
+    3690: "Butene",
+    2804: "Propionamide",
+    2684: "missing AQ & Ethylphosphate",
+    2873: "deamidation + Cation:K", 
+    2704: "missing AQD + nipcam", 
+    2441: "missing AQD", 
+    2820: "methyl", 
+    3434: "missing AQD + diethyl",
+    2801: "deamidation + replacement of two protons with nickel",
+    2828: "missing AQD + Carboxymethyl", 
+    3294: "deamidation + amidation",
+    2695: "missing AQD; addition of phosphate + hexose",
+
+
+}
 
 scans_to_mark = [3750, 4637, 5715, 5883, 6098, 3528, 5554, 2181, 5252, 5099, 5401, 4310, 4135, 4477, 4945, 3954, 2649, 2859, 4793, 3077, 3294]
 x_list = [] 
@@ -41,14 +68,23 @@ for scan_to_mark in scans_to_mark:
 x = x_list
 y = y_list
 
+scaled_ms2_tic_values = [v * 10 for v in ms2_tic_values]
 
-with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\NEW_tic_over_scan_graph(2).pdf") as pdf:
+with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\NEW_tic_over_scan_graph(5).pdf") as pdf:
     plt.figure(figsize=(10, 6))
     plt.plot(scan_numbers, tic_values, color='#ff00c1')
     plt.scatter(x, [val + 2e7 for val in y], color='green', marker='*', s=50)
     plt.xlabel('Scan Number')
     plt.ylabel('Total Ion Current (TIC)')
     plt.title('TIC vs Scan Number')
+    for scan_to_annotate, label in scan_labels.items():
+        counter = 0
+        for scan in scan_numbers:
+            if scan > scan_to_annotate:
+                break
+            counter += 1
+        if counter >= len(tic_values):  
+            counter = len(tic_values) - 1
     plt.grid(True)
     pdf.savefig()
     plt.close()
@@ -60,9 +96,38 @@ with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\NEW_tic_ov
     plt.ylabel('Total Ion Current (TIC)')
     plt.title('Zoomed In')
     plt.grid(True)
+    for scan_to_annotate, label in scan_labels.items():
+        counter = 0
+        for scan in scan_numbers:
+            if scan > scan_to_annotate:
+                break
+            counter += 1
+        if counter >= len(tic_values):  
+            counter = len(tic_values) - 1
+        plt.text(scan_to_annotate, tic_values[counter] + 2e7, f"{scan_to_annotate}, {label}", color='black', fontsize=6, rotation = 20)
     plt.xlim(2000, 4000)
     plt.ylim(0,2e9) 
     pdf.savefig()  
     plt.close()
 
-    # plt.savefig(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\TIC_over_scannumber_plot(2).pdf")
+    plt.figure(figsize=(10, 6))
+    plt.plot(scan_numbers, tic_values, color='#ff00c1')
+    plt.plot(ms2_scan_numbers, scaled_ms2_tic_values, color='blue')
+    plt.scatter(x, [val + 2e7 for val in y], color='green', marker='*', s=50)
+    plt.xlabel('Scan Number')
+    plt.ylabel('Total Ion Current (TIC)')
+    plt.title('TIC vs Scan Number')
+    plt.grid(True)
+    for scan_to_annotate, label in scan_labels.items():
+        counter = 0
+        for scan in scan_numbers:
+            if scan > scan_to_annotate:
+                break
+            counter += 1
+        if counter >= len(tic_values):  
+            counter = len(tic_values) - 1
+        plt.text(scan_to_annotate, tic_values[counter] + 2e7, f"{scan_to_annotate}, {label}", color='black', fontsize=6, rotation = 20)
+    plt.xlim(2000, 4000)
+    plt.ylim(0,2e9) 
+    pdf.savefig()
+    plt.close()
