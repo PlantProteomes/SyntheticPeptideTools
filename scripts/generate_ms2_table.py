@@ -6,11 +6,6 @@ import argparse
 import os.path
 import timeit
 
-import matplotlib.colors
-import matplotlib.pyplot as plt
-import spectrum_utils.spectrum as sus
-import spectrum_utils.plot as sup
-import pandas as pd
 import csv
 import numpy as np
 
@@ -56,7 +51,7 @@ class GenerateMS2Table:
                     charge = int(spectrum['precursorList']['precursor'][0]['selectedIonList']['selectedIon'][0]['charge state'])
                     scan_number = 1 + spectrum['index']
                     scan_time = spectrum['scanList']['scan'][0]['scan start time'] # does scan time refer to ion injection time or scan start time?
-                    mass_delta = precursor_mz * charge - 657.3140 * 2
+                    mass_delta = precursor_mz * charge - 657.3140 * 2 - 1.00727 * (charge - 2)
                     total_ion_current = np.sum(spectrum['intensity array'])
 
                     spectrum_data = {'file root' : self.mzml_file,
@@ -93,7 +88,7 @@ class GenerateMS2Table:
                 annotation_data = {"confidence" : row["confidence"],
                                    "modification" : row["modification"],
                                    "usi" : row["usi"],
-                                   "comments" : row["annotation"]}
+                                   "comments" : row["comments"]}
                 annotations[scan_number] = annotation_data
 
         print("Length of annotated file before merging:", len(annotations))
@@ -121,53 +116,6 @@ class GenerateMS2Table:
             for row in self.spectra:
                 writer.writerow(row)
 
-    # def write_tsv(self):
-    # def write_xlsx(self):
-
-    # plots total ion current vs. scan number
-    def plot_tic(self):
-        df = pd.DataFrame(self.spectra)
-        colors = ["blue"] * len(df)
-        markers, stems, base = plt.stem(df["scan number"], df["total ion current"], markerfmt=" ")
-
-        # highlights 20 tallest peaks
-        tallest = df.nlargest(20, ["total ion current"])
-        for i in range(len(df)):
-            if i in tallest.index:
-                colors[i] = "red"
-        stems.set_colors(colors)
-
-        plt.xlabel("Scan number")
-        plt.ylabel("Total ion current")
-        plt.suptitle("Total Ion Current vs. Scan Number")
-        plt.savefig('ms2_plot.png')
-
-        ax = plt.gca()
-        ax.set_xlim(2000, 4000)
-        ax.set_ylim(0, 100000000)
-        for i in tallest.index:
-            x = tallest['scan number'][i]
-            if self.spectra[i]["modification"] != "":
-                label = str(x) + "\n" + self.spectra[i]["modification"]
-            else:
-                label = str(x)
-            if tallest['total ion current'][i] > 0.95e8:
-                if self.spectra[i]["modification"] != "":
-                    y = 0.925e8
-                else:
-                    y = 0.95e8
-            else:
-                y = tallest['total ion current'][i]
-            ax.annotate(label, xy = (x, y), xycoords="data", textcoords="data", size=7, rotation = 45, rotation_mode = 'anchor')
-            # rotation = 45, rotation_mode = 'anchor')
-        plt.suptitle("Total Ion Current vs. Scan Number (Top 20 Labelled and Annotated)")
-        plt.savefig('ms2_plot_zoomed.png')
-
-        ax.set_xlim(2700, 2900)
-        ax.set_ylim(0, 100000000)
-        plt.savefig('ms2_plot_zoomed_1.png')
-
-
 def main():
 
     generate_table = GenerateMS2Table()
@@ -184,8 +132,6 @@ def main():
     generate_table.write_csv()
     print(f"INFO: Generated MS2 table. Length of file: {len(generate_table.spectra)}. Output file: 'ms2_table.csv'")
 
-    generate_table.plot_tic()
-    print(f"INFO: Generated plots of TIC vs. scan number. Output files: 'ms2_plot.png', 'ms2_plot_zoomed.png', 'ms2_plot_zoomed_1.png'")
     final_end = timeit.default_timer()
     print(f"Total elapsed time: {final_end - generate_table.start}")
 
