@@ -5,7 +5,7 @@ import pandas as pd
 
 csv_file = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\NEW_250402_mEclipse_QC_ncORF-089_TIC.csv"
 ms2_csv_file = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\ms2_table.csv"
-annotations_file = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\scan_annotations.xlsx"
+annotations_file = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\SyntheticPeptideTools\data\scan_annotations.xlsx"
 
 scan_numbers, tic_values = [], []
 with open(csv_file, 'r') as f:
@@ -39,7 +39,7 @@ def annotate_scans(ax, scan_labels, scan_numbers, tic_values, offset=2e7, fontsi
         idx = next((i for i, s in enumerate(scan_numbers) if s > scan), len(tic_values)-1)
         ax.text(scan, tic_values[idx]+offset, f"{label}", color='black', fontsize=fontsize, rotation=20, ha='center')
 
-with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\TIC_over_ScanNumber_Graphs.pdf") as pdf:
+with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\SyntheticPeptideTools\data\TIC_over_ScanNumber_Graphs.pdf") as pdf:
 
     # GRAPH 1: Full MS1 TIC with stars
     fig, ax = plt.subplots(figsize=(10,6))
@@ -79,24 +79,33 @@ with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\TIC_over_S
     pdf.savefig()
     plt.close()
 
-    # GRAPH 4-6: MS2 Zoomed with annotations (example ranges)
+    # GRAPH 4-6: MS2 Zoomed with scan number annotations and side legend
     ms2_ranges = [(2350,2750),(2750,2920),(3200,3730)]
     for x_min, x_max in ms2_ranges:
         fig, ax = plt.subplots(figsize=(10,6))
         ax.plot(ms2_scan_numbers, ms2_tic_values, color='blue')
+        
         used_y = []
-        for scan, label in scan_labels.items():
-            if x_min <= scan <= x_max:
-                if scan in ms2_scan_numbers:
-                    idx = ms2_scan_numbers.index(scan)
-                    tic_val = ms2_tic_values[idx]
-                    label_y = tic_val * 1.05
-                    for prev_y in used_y:
-                        if abs(prev_y - label_y) < max(ms2_tic_values)*0.03:
-                            label_y += max(ms2_tic_values)*0.03
-                    used_y.append(label_y)
-                    ax.plot([scan, scan], [tic_val, label_y], color='black', linestyle='--', linewidth=0.7)
-                    ax.text(scan, label_y, f"{label}", color='black', fontsize=7, rotation=20, ha='center', va='bottom')
+
+        for scan, identification in scan_labels.items():
+            if x_min <= scan <= x_max and scan in ms2_scan_numbers:
+                idx = ms2_scan_numbers.index(scan)
+                tic_val = ms2_tic_values[idx]
+                
+                label_y = tic_val * 1.05
+                for prev_y in used_y:
+                    if abs(prev_y - label_y) < max(ms2_tic_values)*0.03:
+                        label_y += max(ms2_tic_values)*0.03
+                used_y.append(label_y)
+                
+                ax.plot([scan, scan], [tic_val, label_y], color='black', linestyle='--', linewidth=0.7)
+                ax.text(scan, label_y, f"{scan}", color='black', fontsize=7, rotation=20, ha='center', va='bottom')
+        
+        legend_text = [f"{scan}: {label}" for scan, label in sorted(scan_labels.items()) if x_min <= scan <= x_max]
+        legend_labels = "\n".join(legend_text)
+        plt.gcf().text(1.02, 0.5, legend_labels, va='center', fontsize=8, transform=plt.gca().transAxes)
+        plt.subplots_adjust(right=0.75)  # Make space for the side legend
+        
         ax.set_xlabel('Scan Number')
         ax.set_ylabel('Total Ion Current (TIC)')
         ax.set_title(f'MS2 TIC {x_min}-{x_max}')
@@ -105,3 +114,6 @@ with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\TIC_over_S
         ax.grid(True)
         pdf.savefig()
         plt.close()
+
+
+
