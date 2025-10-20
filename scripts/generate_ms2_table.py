@@ -18,6 +18,7 @@ class GenerateMS2Table:
             description="Writes out CSV table with MS2 spectra with columns including file root, scan no., scan time, and total ion current (TIC)")
         parser.add_argument("--mzml_file", help="Name of mzML file")
         parser.add_argument("--previous_list", help="Previous annotated list (accepts CSV, TSV files)")
+        parser.add_argument("--precursor_mz", help="Precursor mz of peptide")
 
         args = parser.parse_args()
 
@@ -32,6 +33,7 @@ class GenerateMS2Table:
 
         self.mzml_file = args.mzml_file
         self.previous_list = args.previous_list
+        self.precursor_mz = float(args.precursor_mz)
         self.spectra = []
         self.start = timeit.default_timer()
         self.stats = { 'counter': 0, 'ms1spectra': 0, 'ms2spectra': 0 }
@@ -51,7 +53,7 @@ class GenerateMS2Table:
                     charge = int(spectrum['precursorList']['precursor'][0]['selectedIonList']['selectedIon'][0]['charge state'])
                     scan_number = 1 + spectrum['index']
                     scan_time = spectrum['scanList']['scan'][0]['scan start time'] # does scan time refer to ion injection time or scan start time?
-                    mass_delta = precursor_mz * charge - 657.3140 * 2 - 1.00727 * (charge - 2)
+                    mass_delta = precursor_mz * charge - self.precursor_mz * 2 - 1.00727 * (charge - 2)
                     total_ion_current = np.sum(spectrum['intensity array'])
 
                     spectrum_data = {'file root' : self.mzml_file,
