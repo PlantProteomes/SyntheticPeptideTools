@@ -2,6 +2,8 @@ import csv
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
+import argparse
+import os
 
 csv_file = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\NEW_250402_mEclipse_QC_ncORF-089_TIC.csv"
 ms2_csv_file = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\data\ms2_table.csv"
