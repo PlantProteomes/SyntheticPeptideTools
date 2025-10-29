@@ -72,5 +72,5 @@ def b_y_ions(sequence, charge):
     by_df = pd.DataFrame(by_dict)
     return by_df
 
-print(mass_to_charge_ratio("AQDSQVLEEER", 2))
-print(b_y_ions("AQDSQVLEEER", 2))
+print(mass_to_charge_ratio("LTLPAKWER", 2))
+print(b_y_ions("LTLPAKWER", 2))

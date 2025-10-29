@@ -34,7 +34,7 @@ for scan_to_mark in scans_to_mark:
     x_list.append(scan_to_mark)
     y_list.append(tic_values[idx])
 
-scaled_ms2_tic_values = [v * 10 for v in ms2_tic_values]
+scaled_ms2_tic_values = [v * 50 for v in ms2_tic_values]
 
 def annotate_scans(ax, scan_labels, scan_numbers, tic_values, offset=2e7, fontsize=6):
     for scan, label in scan_labels.items():
@@ -70,7 +70,7 @@ with PdfPages(r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\Synt
     # GRAPH 3: MS1 + MS2 overlay
     fig, ax = plt.subplots(figsize=(10,6))
     ax.plot(scan_numbers, tic_values, color='#ff00c1', label='MS1')
-    ax.plot(ms2_scan_numbers, scaled_ms2_tic_values, color='blue', label='MS2 x10')
+    ax.plot(ms2_scan_numbers, scaled_ms2_tic_values, color='blue', label='MS2 x50')
     ax.scatter(x_list, [val+2e7 for val in y_list], color='green', marker='*', s=50)
     ax.set_xlabel('Scan Number')
     ax.set_ylabel('Total Ion Current (TIC)')

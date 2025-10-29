@@ -1,5 +1,6 @@
 # py find_precursor_intensity.py --mzml_file --excel_file --window_size 10 --output 
-# py find_precursor_intensity.py --mzml_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\NEW_250402_mEclipse_QC_ncORF-089.mzML --excel_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\top_50_scans.xlsx --window_size 10 --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\summed_precursor).csv
+# py find_precursor_intensity.py --mzml_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\NEW_250402_mEclipse_QC_ncORF-089.mzML --excel_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\ms2_scans_089.xlsx --window_size 10 --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\scan_2771.csv
+# py find_precursor_intensity.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML" --excel_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\scan_precursor_055.xlsx" --window_size 10 --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\estimated_precursors_055(NEW).csv
 # excel file must have headers "scannumber" and "precursor"
 
 
@@ -76,15 +77,19 @@ def main():
     # Step 2: Process each MS2 scan
     for ms2_scan, guess_mz in zip(ms2_list, precursor_guess_list):
         ms2 = next((s for s in ms2_scans if s['ScanNumber'] == ms2_scan), None)
-        if ms2 is None:
-            print(f"WARNING: MS2 scan {ms2_scan} not found, skipping")
-            continue
 
-        ms2_idx = next((i for i, s in enumerate(ms1_scans) if s['ScanTime'] >= ms2['ScanTime']), None)
-        if ms2_idx is None:
-            print(f"WARNING: Could not find MS1 scans around MS2 scan {ms2_scan}, skipping")
-            continue
-
+        if ms2 is not None:
+            ms2_idx = next((i for i, s in enumerate(ms1_scans) if s['ScanTime'] >= ms2['ScanTime']), None)
+            if ms2_idx is None:
+                print(f"WARNING: Could not find MS1 scans around MS2 scan {ms2_scan}, skipping")
+                continue
+        else:
+            # NEW: If not in MS2, treat as MS1 apex scan
+            print(f"INFO: Scan {ms2_scan} not found in MS2, treating as apex MS1 scan")
+            ms2_idx = next((i for i, s in enumerate(ms1_scans) if s['ScanNumber'] == ms2_scan), None)
+            if ms2_idx is None:
+                print(f"WARNING: Scan {ms2_scan} not found in MS1, skipping")
+                continue
         start = max(ms2_idx - args.window_size, 0)
         end = min(ms2_idx + args.window_size + 1, ms1_count)
         ms1_window = ms1_scans[start:end]
