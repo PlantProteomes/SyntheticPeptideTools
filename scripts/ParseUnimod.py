@@ -20,8 +20,11 @@ def parse_unimod(obo_file):
         line = line.strip()
 
         if line == "[Term]":
-            if current and current["Modification"]:
-                mod_dict[current["Modification"]] = current  # save previous mod
+            if current and current["Modification"] and current["Monoisotopic Mass"] is not None:
+                mass=current["Monoisotopic Mass"]
+                if mass not in mod_dict:
+                    mod_dict[mass] = []
+                mod_dict[mass].append(current)
             current = {"Modification": None, "Monoisotopic Mass": None}
             for pos in positions:
                 current[pos] = ""  # initialize all positions as empty
@@ -39,7 +42,7 @@ def parse_unimod(obo_file):
                         current["Monoisotopic Mass"] = float(m.group(1))
                     except:
                         pass
-
+                    
             # Get sites
             elif line.startswith("xref: spec_") and "_site" in line:
                 m = re.match(r'xref: spec_(\d+)_site "(.+)"', line)
@@ -73,12 +76,23 @@ def parse_unimod(obo_file):
                             elif position == "Protein C-term":
                                 current["Protein C-term"] = "yes"
 
-    if current and current["Modification"]:
-        mod_dict[current["Modification"]] = current
+    # Save the last modification
+    if current and current["Modification"] and current["Monoisotopic Mass"] is not None:
+        mass = current["Monoisotopic Mass"]
+        if mass not in mod_dict:
+            mod_dict[mass] = []
+        mod_dict[mass].append(current)
     return mod_dict
 
+
+
 if __name__ == "__main__":
-    obo_path = "path/to/unimod.obo"  # replace with path to your unimod.obo file
+    obo_path = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\projects\unimod.obo.txt" # replace with path to your unimod.obo file
     mod_dict = parse_unimod(obo_path)
 
-    print("Total modifications:", len(mod_dict))
+    print("Done parsing")
+
+# test
+mass_to_check = 42.010565
+if mass_to_check in mod_dict:
+    print(mod_dict[mass_to_check])

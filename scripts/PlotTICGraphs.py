@@ -1,5 +1,5 @@
-# py generate_tic_plots.py --mzml_file --annotation_file --output_file --ms1_zoom --overlay_zoom --ms2_ranges --precursor_mz --tolerance
-# py TICplots.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML" --annotation_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\scan_identifications_055.xlsx" --tolerance 0.003 --precursor_mz 562.3260 --output_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\TIC_plots_055.pdf" --ms1_zoom 2000,2900 --overlay_zoom 2000,2900 --ms2_ranges 2000,2200;2200,2250;2250,2300 
+# py PlotTICGraphs.py --mzml_file --annotation_file --output_file --ms1_zoom --overlay_zoom --ms2_ranges --precursor_mz --tolerance
+# py PlotTICGraphs.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML" --annotation_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\scan_identifications_055.xlsx" --tolerance 0.003 --precursor_mz 562.3260 --output_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\TIC_plots_055.pdf" --ms1_zoom 2000,2900 --overlay_zoom 2000,2900 --ms2_ranges 2000,2200;2200,2250;2250,2300 
 
 
 
@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
 from pyteomics import mzml
-import numpy as np
 
 
 def read_ms1_tic(mzml_file):
