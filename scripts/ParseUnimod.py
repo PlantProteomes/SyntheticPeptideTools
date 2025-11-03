@@ -8,7 +8,7 @@ def parse_unimod(obo_file):
     termini = ["N-term", "C-term", "Protein N-term", "Protein C-term"]
     positions = amino_acids + termini
 
-    mod_dict = {}
+    mods_list = []
 
     with open(obo_file, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -21,10 +21,7 @@ def parse_unimod(obo_file):
 
         if line == "[Term]":
             if current and current["Modification"] and current["Monoisotopic Mass"] is not None:
-                mass=current["Monoisotopic Mass"]
-                if mass not in mod_dict:
-                    mod_dict[mass] = []
-                mod_dict[mass].append(current)
+                mods_list.append(current)
             current = {"Modification": None, "Monoisotopic Mass": None}
             for pos in positions:
                 current[pos] = ""  # initialize all positions as empty
@@ -40,7 +37,7 @@ def parse_unimod(obo_file):
                 if m:
                     try:
                         current["Monoisotopic Mass"] = float(m.group(1))
-                    except:
+                    except ValueError:
                         pass
                     
             # Get sites
@@ -78,21 +75,30 @@ def parse_unimod(obo_file):
 
     # Save the last modification
     if current and current["Modification"] and current["Monoisotopic Mass"] is not None:
-        mass = current["Monoisotopic Mass"]
-        if mass not in mod_dict:
-            mod_dict[mass] = []
-        mod_dict[mass].append(current)
-    return mod_dict
+        mods_list.append(current)
+    
+    bucket_dict = {}
+    for mod in mods_list:
+        mass = mod["Monoisotopic Mass"]
+        bucket_key = int(mass)
+        if bucket_key not in bucket_dict:
+            bucket_dict[bucket_key] = []
+        bucket_dict[bucket_key].append(mod)
+
+    return bucket_dict
 
 
 
 if __name__ == "__main__":
     obo_path = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\projects\unimod.obo.txt" # replace with path to your unimod.obo file
-    mod_dict = parse_unimod(obo_path)
-
+    mod_buckets = parse_unimod(obo_path)
     print("Done parsing")
 
 # test
-mass_to_check = 42.010565
-if mass_to_check in mod_dict:
-    print(mod_dict[mass_to_check])
+sample_key = 42
+if sample_key in mod_buckets:
+    print(f"\nBucket {sample_key} contains {len(mod_buckets[sample_key])} modifications:")
+    for mod in mod_buckets[sample_key]:
+        print(f" - {mod['Modification']} (Mass: {mod['Monoisotopic Mass']})")
+else:
+    print(f"\nNo modifications found in bucket {sample_key}.")

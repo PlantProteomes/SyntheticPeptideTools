@@ -1,5 +1,5 @@
 # py PlotTICGraphs.py --mzml_file --annotation_file --output_file --ms1_zoom --overlay_zoom --ms2_ranges --precursor_mz --tolerance
-# py PlotTICGraphs.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML" --annotation_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\scan_identifications_055.xlsx" --tolerance 0.003 --precursor_mz 562.3260 --output_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\TIC_plots_055.pdf" --ms1_zoom 2000,2900 --overlay_zoom 2000,2900 --ms2_ranges 2000,2200;2200,2250;2250,2300 
+# py PlotTICGraphs.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML" --annotation_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\peptide_055\scan_identifications_055.xlsx" --tolerance 0.003 --precursor_mz 562.3260 --output_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\peptide_055\TIC_plots_055(NEW).pdf" --ms1_zoom 2000,2900 --overlay_zoom 2000,2900 --ms2_ranges 2000,2200;2200,2250;2250,2300 
 
 
 
@@ -86,6 +86,10 @@ def generate_plots(ms1_scans, ms1_tics, ms2_scans, ms2_tics, annotations, output
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(ms1_scans, ms1_tics, color='#ff00c1', label='MS1 TIC')
         ax.scatter(scans_to_mark, [y + 2e7 for y in y_list], color='green', marker='*', s=50)
+        for scan, y_val in zip(scans_to_mark, y_list):
+            ax.text(scan, y_val + 2.2e7, str(scan), color='black', fontsize=7, rotation=45,
+                    ha='center', va='bottom')
+
         ax.set_xlabel('Scan Number')
         ax.set_ylabel('Total Ion Current (TIC)')
         ax.set_title('MS1 TIC vs Scan Number')
@@ -97,6 +101,9 @@ def generate_plots(ms1_scans, ms1_tics, ms2_scans, ms2_tics, annotations, output
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(ms1_scans, ms1_tics, color='#ff00c1')
         ax.scatter(scans_to_mark, [y + 2e7 for y in y_list], color='green', marker='*', s=50)
+        for scan, y_val in zip(scans_to_mark, y_list):
+            ax.text(scan, y_val + 2.2e7, str(scan), color='black', fontsize=7, rotation=45,
+                    ha='center', va='bottom')
         ax.set_xlim(ms1_zoom)
         ax.set_ylim(0, max(ms1_tics) * 1.1)
         ax.set_xlabel('Scan Number')
@@ -111,6 +118,9 @@ def generate_plots(ms1_scans, ms1_tics, ms2_scans, ms2_tics, annotations, output
         ax.plot(ms1_scans, ms1_tics, color='#ff00c1', label='MS1')
         ax.plot(ms2_scans, scaled_ms2_tics, color='blue', label='MS2 (x80)')
         ax.scatter(scans_to_mark, [y + 2e7 for y in y_list], color='green', marker='*', s=50)
+        for scan, y_val in zip(scans_to_mark, y_list):
+            ax.text(scan, y_val + 2.2e7, str(scan), color='black', fontsize=7, rotation=45,
+                    ha='center', va='bottom')
         ax.set_xlim(overlay_zoom)
         ax.set_ylim(0, max(ms1_tics) * 1.1)
         ax.set_xlabel('Scan Number')
@@ -126,7 +136,6 @@ def generate_plots(ms1_scans, ms1_tics, ms2_scans, ms2_tics, annotations, output
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.plot(ms2_scans, ms2_tics, color='blue')
             used_y = []
-
             for scan, label in annotations.items():
                 if x_min <= scan <= x_max and scan in ms2_scans:
                     idx = ms2_scans.index(scan)
