@@ -1,4 +1,6 @@
 import itertools
+import sequence_parser
+import unimod_reader
 
 acids = {
     "A" : 71.0371,
@@ -39,25 +41,24 @@ modifications = {
     "Dehydration" : -18.010565
 }
 
-def generate_masses(peptide, r, modification):
-    print("Peptide sequence:", peptide)
-    print("Length of subsequence:", r)
-    print("Modification:", modification)
-
-    sequence = []
-    for letter in peptide:
-        sequence.append(letter)
-
-    combinations = set(itertools.combinations(sorted(sequence), r))
-    combinations_list = sorted(list(combinations))
+def generate_masses(peptide, r):
+    sequence = sequence_parser.parse_sequence(peptide)
+    all_mods = sequence_parser.get_mods(peptide)
+    mod_dict = {}
+    for mod in all_mods:
+        mod_dict[mod] = float(unimod_reader.search_unimod_by_name(mod)) if unimod_reader.search_unimod_by_name(mod) else 0.0
+    combinations_list = sorted(list(set(itertools.combinations(sorted(sequence), r))))
+    output = {}
 
     for i in range(len(combinations_list)):
-        mass = modifications[modification]
+        mass = 0
+        string = ""
         for j in range(len(combinations_list[i])):
-            if combinations_list[i][j] == "R":
-                mass += modifications["R tag"]
-            mass += acids[combinations_list[i][j]]
-            print(combinations_list[i][j], end = "")
-        print(f": {mass:0,.4f}")
+            mods = sequence_parser.get_mods(combinations_list[i][j])
+            for mod in mods:
+                mass += mod_dict[mod] if mod else 0.0
+            mass += acids[sequence_parser.get_acids(combinations_list[i][j])]
+            string += combinations_list[i][j]
+        output[string] = float(f"{mass:0,.4f}")
+    return output
 
-generate_masses("AQDSQVLEEER", 2, "Acetald +26")
