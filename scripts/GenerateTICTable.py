@@ -1,4 +1,6 @@
 # py generate_tic_table.py --mzml_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\055_TIC_table.csv
+# py GenerateTICTable.py --mzml_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\NEW_250402_mEclipse_QC_ncORF-089.mzML --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\089_TIC_table.csv
+# py GenerateTICTable.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML" --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\055_ms1_TIC_table.csv
 
 import os
 import argparse
