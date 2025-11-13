@@ -1,5 +1,8 @@
 # Program heavily drawn from read_mzML1.py and find_spectra.py made by Nathan Zhang and Eric Deutsch.
 # ChatGPT also gave substantial coding assistance.
+# py GenerateMS2Table.py --mzml_file --previous_list --precursor_mz
+# py "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\SyntheticPeptideTools\scripts\GenerateMS2Table.py" --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-097.mzML" --precursor_mz 708.3294
+# py "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\SyntheticPeptideTools\scripts\GenerateMS2Table.py" --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\251103_mEclipse_ncORF89-S3.mzML" --precursor_mz 657.31400280985
 
 import os
 import argparse
@@ -52,9 +55,10 @@ class GenerateMS2Table:
                     precursor_mz = spectrum['precursorList']['precursor'][0]['selectedIonList']['selectedIon'][0]['selected ion m/z']
                     charge = int(spectrum['precursorList']['precursor'][0]['selectedIonList']['selectedIon'][0]['charge state'])
                     scan_number = 1 + spectrum['index']
-                    scan_time = spectrum['scanList']['scan'][0]['scan start time'] # does scan time refer to ion injection time or scan start time?
+                    scan_time = spectrum['scanList']['scan'][0]['scan start time']
                     mass_delta = precursor_mz * charge - self.precursor_mz * 2 - 1.00727 * (charge - 2)
                     total_ion_current = np.sum(spectrum['intensity array'])
+                    injection_time = spectrum.get('scanList', {}).get('scan', [{}])[0].get('ion injection time', None)
 
                     spectrum_data = {'file root' : self.mzml_file,
                                      'scan number' : scan_number,
@@ -62,56 +66,46 @@ class GenerateMS2Table:
                                      'total ion current' : total_ion_current,
                                      'precursor m/z' : precursor_mz,
                                      'precursor charge' : charge,
-                                     'precursor mass delta' : mass_delta}
+                                     'precursor mass delta' : mass_delta,
+                                     'injection time' : injection_time
+                                     }
                     self.spectra.append(spectrum_data)
 
     def read_annotation(self):
-        # defines delimiter
+        if not self.previous_list:
+            print("INFO: No previous annotation list provided; skipping annotation merge.")
+            for row in self.spectra:
+                row.update({"confidence": "", "modification": "", "usi": "", "comments": ""})
+            return
+
         ext = os.path.splitext(self.previous_list)[1].lower()
-        d = ""
+        d = ',' if ext == '.csv' else '\t'
 
-        # checks if extension is tsv or csv
-        if ext == '.csv':
-            d = ','
-        elif ext == '.tsv':
-            d = '\t'
-        else:
-            print(f"ERROR: Unsupported file extension '{ext}'")
-
-        # collects confidence, annotations, modifications, and usi from original file, and keys them to scan no.
         annotations = {}
-        with open(self.previous_list, newline = '') as file:
-            reader = csv.DictReader(file, delimiter = d)
+        with open(self.previous_list, newline='') as file:
+            reader = csv.DictReader(file, delimiter=d)
             for row in reader:
                 if not any(row.values()):
                     continue
+                try:
+                    scan_number = int(row.get('scan number', '').strip())
+                except ValueError:
+                    continue
+                annotations[scan_number] = {
+                    "confidence": row.get("confidence", ""),
+                    "modification": row.get("modification", ""),
+                    "usi": row.get("usi", ""),
+                    "comments": row.get("comments", "")
+                }
 
-                scan_number = int(row['scan number'])
-                annotation_data = {"confidence" : row["confidence"],
-                                   "modification" : row["modification"],
-                                   "usi" : row["usi"],
-                                   "comments" : row["comments"]}
-                annotations[scan_number] = annotation_data
-
-        print("Length of annotated file before merging:", len(annotations))
-        print("Number of spectra before merging:", len(self.spectra))
-
-        # merges annotations to final spectra list
-        blank_annotation_data = {"confidence" : "",
-                                 "modification" : "",
-                                 "usi" : "",
-                                 "comments" : ""}
+        blank_annotation_data = {"confidence": "", "modification": "", "usi": "", "comments": ""}
         for row in self.spectra:
             scan_number = row['scan number']
-            if scan_number in annotations:
-                row.update(annotations[scan_number])
-            else:
-                row.update(blank_annotation_data)
-        print("Length of merged file:", len(self.spectra))
+            row.update(annotations.get(scan_number, blank_annotation_data))
 
     # creates new merged csv file
     def write_csv(self):
-        fieldnames = ["file root", "scan number", "scan time", "total ion current", "precursor m/z", "precursor charge", "precursor mass delta", "confidence", "modification", "usi", "comments"]
+        fieldnames = ["file root", "scan number", "injection time", "scan time", "total ion current", "precursor m/z", "precursor charge", "precursor mass delta", "confidence", "modification", "usi", "comments"]
         with open("ms2_table.csv", "w", newline="") as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()

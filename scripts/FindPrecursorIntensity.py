@@ -1,14 +1,12 @@
-# py find_precursor_intensity.py --mzml_file --excel_file --window_size 10 --output 
-# py find_precursor_intensity.py --mzml_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\NEW_250402_mEclipse_QC_ncORF-089.mzML --excel_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\ms2_scans_089.xlsx --window_size 10 --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\scan_2771.csv
-# py find_precursor_intensity.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-055.mzML" --excel_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\scan_precursor_055.xlsx" --window_size 10 --output C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\new_peptide\estimated_precursors_055(NEW).csv
-# excel file must have headers "scannumber" and "precursor"
-
+# py find_precursor_intensity.py --mzml_file --window_size 10 --output 
+# py FindPrecursorIntensity.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\251103_mEclipse_ncORF89-S1.mzML" --window_size 10 --output "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\peptide_089\089_s1\estimated_precursors_089_s1_TEST.csv"
 
 import os
 import argparse
 import pandas as pd
 from pyteomics import mzml
 import csv
+import numpy as np
 
 TOLERANCE = 0.003
 
@@ -24,28 +22,38 @@ def find_peak_in_scan(scan, guess_mz, tolerance=TOLERANCE):
                 closest_intensity = intensity
     return closest_mz, closest_intensity
 
+def process_ms1_window(ms1_scans, center_idx, guess_mz, window_size):
+    start = max(center_idx - window_size, 0)
+    end = min(center_idx + window_size + 1, len(ms1_scans))
+    ms1_window = ms1_scans[start:end]
+
+    mz_values = []
+    intensity_values = []
+    summed_intensity = 0.0
+
+    for scan in ms1_window:
+        mz, intensity = find_peak_in_scan(scan, guess_mz)
+        mz_values.append(mz if mz is not None else "NA")
+        intensity_values.append(intensity)
+        summed_intensity += intensity
+
+    # Ensure exactly 20 points
+    while len(mz_values) < 20:
+        mz_values.append("NA")
+        intensity_values.append(0.0)
+    mz_values = mz_values[:20]
+    intensity_values = intensity_values[:20]
+
+    max_intensity = max(intensity_values) if intensity_values else 0.0
+
+    return mz_values, intensity_values, summed_intensity, max_intensity
+
 def main():
     parser = argparse.ArgumentParser(description='Estimate precursor m/z from MS1 scans around MS2 scans')
     parser.add_argument('--mzml_file', required=True, help='Input mzML file')
-    parser.add_argument('--excel_file', required=True, help='Excel file containing columns "scannumber" and "precursor"')
     parser.add_argument('--window_size', type=int, default=10, help='Number of MS1 scans before/after MS2')
     parser.add_argument('--output', default='estimated_precursor_values.csv', help='Output CSV file')
     args = parser.parse_args()
-
-    # Load Excel file
-    if not os.path.isfile(args.excel_file):
-        print(f"ERROR: Excel file {args.excel_file} not found")
-        return
-    df = pd.read_excel(args.excel_file)
-
-    if 'scannumber' not in df.columns or 'precursor' not in df.columns:
-        raise ValueError("Excel file must contain columns named 'scannumber' and 'precursor'")
-
-    ms2_list = df['scannumber'].dropna().astype(int).tolist()
-    precursor_guess_list = df['precursor'].dropna().astype(float).tolist()
-
-    if len(ms2_list) != len(precursor_guess_list):
-        raise ValueError("Number of scannumber and precursor entries must match")
 
     if not os.path.isfile(args.mzml_file):
         print(f"ERROR: mzML file {args.mzml_file} not found")
@@ -65,31 +73,54 @@ def main():
                     'intensity array': spectrum['intensity array']
                 })
             elif spectrum['ms level'] == 2:
+                # Extract precursor m/z from mzML
+                precursor_mz = spectrum['precursorList']['precursor'][0]['selectedIonList']['selectedIon'][0]['selected ion m/z']
                 scan_number = int(spectrum['id'].split('=')[-1]) if 'id' in spectrum else None
                 ms2_scans.append({
                     'ScanNumber': scan_number,
-                    'ScanTime': spectrum['scanList']['scan'][0]['scan start time'] if 'scanList' in spectrum else None
+                    'ScanTime': spectrum['scanList']['scan'][0]['scan start time'] if 'scanList' in spectrum else None,
+                    'Precursor_m/z': precursor_mz,
+                    'Spectrum': spectrum
                 })
 
     ms1_count = len(ms1_scans)
     results = []
 
-    # Step 2: Process each MS2 scan
-    for ms2_scan, guess_mz in zip(ms2_list, precursor_guess_list):
-        ms2 = next((s for s in ms2_scans if s['ScanNumber'] == ms2_scan), None)
+    # Process MS1 scans to find apex
+    apex_scan = max(ms1_scans, key=lambda s: sum(s['intensity array']))
+    apex_idx = ms1_scans.index(apex_scan)
+    apex_mz_array = apex_scan['m/z array']
+    apex_int_array = apex_scan['intensity array']
+    guess_mz_apex = apex_mz_array[np.argmax(apex_int_array)]
 
-        if ms2 is not None:
-            ms2_idx = next((i for i, s in enumerate(ms1_scans) if s['ScanTime'] >= ms2['ScanTime']), None)
-            if ms2_idx is None:
-                print(f"WARNING: Could not find MS1 scans around MS2 scan {ms2_scan}, skipping")
-                continue
-        else:
-            # NEW: If not in MS2, treat as MS1 apex scan
-            print(f"INFO: Scan {ms2_scan} not found in MS2, treating as apex MS1 scan")
-            ms2_idx = next((i for i, s in enumerate(ms1_scans) if s['ScanNumber'] == ms2_scan), None)
-            if ms2_idx is None:
-                print(f"WARNING: Scan {ms2_scan} not found in MS1, skipping")
-                continue
+    mz_values, intensity_values, summed_intensity, max_intensity = process_ms1_window(
+        ms1_scans, apex_idx, guess_mz_apex, args.window_size
+    )
+
+    apex_row = {
+        'MS2Scan': apex_scan['ScanNumber'],
+        'SummedIntensity': summed_intensity,
+        'Maximum Precursor Intensity': max_intensity,
+        'MS2 TIC': summed_intensity
+    }
+    for i in range(20):
+        apex_row[f'mz_{i+1}'] = mz_values[i]
+        apex_row[f'int_{i+1}'] = intensity_values[i]
+
+    results.append(apex_row)
+
+    # Process each MS2 scan
+    for ms2 in ms2_scans:
+        ms2_scan = ms2['ScanNumber']
+        spectrum = ms2['Spectrum']
+        guess_mz = ms2['Precursor_m/z']
+        total_ion_current = np.sum(spectrum['intensity array'])
+
+        ms2_idx = next((i for i, s in enumerate(ms1_scans) if s['ScanTime'] >= ms2['ScanTime']), None)
+        if ms2_idx is None:
+            print(f"WARNING: Could not find MS1 scans around MS2 scan {ms2_scan}, skipping")
+            continue
+
         start = max(ms2_idx - args.window_size, 0)
         end = min(ms2_idx + args.window_size + 1, ms1_count)
         ms1_window = ms1_scans[start:end]
@@ -110,19 +141,30 @@ def main():
         mz_values = mz_values[:20]
         intensity_values = intensity_values[:20]
 
+        # Compute maximum precursor intensity
+        max_intensity = max(intensity_values) if intensity_values else 0.0
+
         row = {
             'MS2Scan': ms2_scan,
-            'Instrument_m/z': guess_mz,
-            'SummedIntensity': summed_intensity
+            'SummedIntensity': summed_intensity,
+            'Maximum Precursor Intensity': max_intensity,
+            'MS2 TIC': total_ion_current
         }
         for i in range(20):
             row[f'mz_{i+1}'] = mz_values[i]
             row[f'int_{i+1}'] = intensity_values[i]
+
         results.append(row)
 
     # Step 3: Write CSV
-    fieldnames = ['MS2Scan', 'Instrument_m/z', 'SummedIntensity'] + \
+    apex = results[0]
+    real_ms2_rows = results[1:]
+    real_ms2_rows.sort(key=lambda x: x['MS2 TIC'], reverse=True)
+    results = [apex] + real_ms2_rows
+
+    fieldnames = ['MS2Scan', 'SummedIntensity', 'MS2 TIC', 'Maximum Precursor Intensity',''] + \
                  [f'mz_{i+1}' for i in range(20)] + [f'int_{i+1}' for i in range(20)]
+    
     with open(args.output, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
