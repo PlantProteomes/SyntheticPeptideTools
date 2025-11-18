@@ -15,12 +15,48 @@ def find_peak_in_scan(scan, guess_mz, tolerance=TOLERANCE):
     intensity_array = scan['intensity array']
     closest_mz = None
     closest_intensity = 0.0
+
     for mz, intensity in zip(mz_array, intensity_array):
         if abs(mz - guess_mz) <= tolerance:
             if closest_mz is None or abs(mz - guess_mz) < abs(closest_mz - guess_mz):
                 closest_mz = mz
                 closest_intensity = intensity
     return closest_mz, closest_intensity
+
+def get_precursor_intensity(ms1_scans,ms2_scan_time,precursor_mz,window_size=10):
+    ms2_inx = next((i for i, s in enumerate(ms1_scans) if s['ScanTime'] >= ms2_scan_time), None)
+    if ms2_inx is None:
+        return None, None, None, None
+    
+    start = max(ms2_inx - window_size, 0)
+    end = min(ms2_inx + window_size + 1, len(ms1_scans))
+    ms1_window = ms1_scans[start:end]
+
+    mz_values = []
+    intensity_values = []
+    summed_intensity = 0.0
+
+    for scan in ms1_window:
+        mz, intensity = find_peak_in_scan(scan, precursor_mz)
+        mz_values.append(mz if mz is not None else "NA")
+        intensity_values.append(intensity)
+        summed_intensity += intensity
+
+    while len(mz_values) < 20:
+        mz_values.append("NA")
+        intensity_values.append(0.0)
+    
+    mz_values = mz_values[:20]
+    intensity_values = intensity_values[:20]
+
+    max_intensity = max(intensity_values)
+
+    return {
+        'mz_values': mz_values,
+        'intensity_values': intensity_values,
+        'summed_intensity': summed_intensity,
+        'max_intensity': max_intensity
+    }
 
 def process_ms1_window(ms1_scans, center_idx, guess_mz, window_size):
     start = max(center_idx - window_size, 0)
@@ -41,6 +77,7 @@ def process_ms1_window(ms1_scans, center_idx, guess_mz, window_size):
     while len(mz_values) < 20:
         mz_values.append("NA")
         intensity_values.append(0.0)
+
     mz_values = mz_values[:20]
     intensity_values = intensity_values[:20]
 
@@ -101,7 +138,7 @@ def main():
         'MS2Scan': apex_scan['ScanNumber'],
         'SummedIntensity': summed_intensity,
         'Maximum Precursor Intensity': max_intensity,
-        'MS2 TIC': summed_intensity
+        'MS2 TIC': 0
     }
     for i in range(20):
         apex_row[f'mz_{i+1}'] = mz_values[i]
@@ -116,43 +153,26 @@ def main():
         guess_mz = ms2['Precursor_m/z']
         total_ion_current = np.sum(spectrum['intensity array'])
 
-        ms2_idx = next((i for i, s in enumerate(ms1_scans) if s['ScanTime'] >= ms2['ScanTime']), None)
-        if ms2_idx is None:
-            print(f"WARNING: Could not find MS1 scans around MS2 scan {ms2_scan}, skipping")
+        features = get_precursor_intensity(
+            ms1_scans,
+            ms2['ScanTime'],
+            guess_mz,
+            args.window_size
+        )
+
+        if features is None:
             continue
 
-        start = max(ms2_idx - args.window_size, 0)
-        end = min(ms2_idx + args.window_size + 1, ms1_count)
-        ms1_window = ms1_scans[start:end]
-
-        mz_values = []
-        intensity_values = []
-        summed_intensity = 0.0
-
-        for scan in ms1_window:
-            mz, intensity = find_peak_in_scan(scan, guess_mz)
-            mz_values.append(mz if mz is not None else "NA")
-            intensity_values.append(intensity)
-            summed_intensity += intensity
-
-        while len(mz_values) < 20:
-            mz_values.append("NA")
-            intensity_values.append(0.0)
-        mz_values = mz_values[:20]
-        intensity_values = intensity_values[:20]
-
-        # Compute maximum precursor intensity
-        max_intensity = max(intensity_values) if intensity_values else 0.0
-
         row = {
-            'MS2Scan': ms2_scan,
-            'SummedIntensity': summed_intensity,
-            'Maximum Precursor Intensity': max_intensity,
+            'MS2Scan': ms2_scan,    
+            'SummedIntensity': features['summed_intensity'],
+            'Maximum Precursor Intensity': features['max_intensity'],
             'MS2 TIC': total_ion_current
         }
+
         for i in range(20):
-            row[f'mz_{i+1}'] = mz_values[i]
-            row[f'int_{i+1}'] = intensity_values[i]
+            row[f'mz_{i+1}'] = features['mz_values'][i]
+            row[f'int_{i+1}'] = features['intensity_values'][i]
 
         results.append(row)
 

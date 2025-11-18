@@ -87,8 +87,6 @@ def parse_unimod(obo_file):
 
     return bucket_dict
 
-
-
 if __name__ == "__main__":
     obo_path = r"C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\projects\unimod.obo.txt" # replace with path to your unimod.obo file
     mod_buckets = parse_unimod(obo_path)
