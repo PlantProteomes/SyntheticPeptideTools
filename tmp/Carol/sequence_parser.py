@@ -1,3 +1,7 @@
+# Parses sequence (ex. AQDSQVLEEER[Label:13C(6)15N(4)]) as string. Can return list of amino acids, list of modifications (unbracketed), and list of unmodified amino acids
+# Some assistance given by ChatGPT
+import timeit
+
 def parse_sequence(modified_sequence): # converts everything in the sequence to a list of modified amino acids
     bracket_depth = 0
     bracketed_sequence = ""
@@ -60,3 +64,8 @@ def get_acids(modified_sequence): # extracts only unmodified amino acids
 
     return unmodified_sequence
 
+
+# if __name__ == "__main__":
+# #     print(timeit.timeit(stmt="check_missing('251103_mEclipse_ncORF89-S1', 4343, 'AQDSQVLEEER[Label:13C(6)15N(4)', 'missing QV', 999007, 0.002)",setup="from __main__ import check_missing", number=10))
+#     print(timeit.timeit(stmt="parse_sequence('AQDSQVLEEER[Label:13C(6)15N(4)]')",setup="from __main__ import parse_sequence", number=10))
+#     # print(timeit.timeit(stmt=snippet, globals=globals(), number=10))
