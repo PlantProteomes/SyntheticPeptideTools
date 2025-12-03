@@ -158,7 +158,9 @@ def check_location(sequence, modification, tolerance, spectrum, verbosity):
                     print(f"found matching y-ion with mass {match} and intensity {combined_dict[y_int][match]}") if verbosity else None
                     intensity_sum += combined_dict[y_int][match]
                     match_count += 1
+        print(f"Sum of all found intensities: {intensity_sum}. Number of matches: {match_count}. Maximum intensity of spectrum: {max_intensity}.") if verbosity else None
         match_score = 5 * (intensity_sum / (match_count * max_intensity)) + 5 * (match_count / (2 * length - 2)) if match_count * max_intensity != 0 else 5 * (match_count / (2 * length - 2))
+        print(f"Match score: 5 * {intensity_sum} / ({match_count} * {max_intensity}) + 5 * ({match_count} / (2 * length - 2)) = {match_score}") if verbosity else None
         code_string += f"{match_score:.2f}," if i < length else f"{match_score:.2f}"
         candidates["".join(current_sequence)] = match_score
         approval_list.append(is_approved)
@@ -231,66 +233,57 @@ def check_missing(sequence, modification, tolerance, spectrum):
     best_sequence = max(candidates, key=candidates.get)
     return f"{best_sequence}", code_string
 
-def check_extra(ms_run, scan_number, sequence, modification, pxd, tolerance):
+def check_extra(sequence, modification, tolerance, spectrum):
+    # TODO: implement extra for gain of one amino acid (should be similar to check_location)
+
     gain = sequence_parser.parse_sequence(modification.split(" ")[-1])
     sequence_list = sequence_parser.parse_sequence(sequence)
-
-    url = f"https://proteomecentral.proteomexchange.org/api/proxi/v0.1/spectra?resultType=full&usi=mzspec:PXD{pxd}:{ms_run}:scan:{scan_number}"
-    response = requests.get(url)
-    analysis = json.loads(response.text)
-    intensity_array = analysis[0]["intensities"]
-    intensity_dict = {}
-    for intensity in intensity_array:
-        int_intensity = int(float(intensity))
-        if int_intensity not in intensity_dict.keys():
-            intensity_dict[int_intensity] = [float(intensity)]
-        else:
-            intensity_dict[int_intensity].append(float(intensity))
-    mz_array = analysis[0]["mzs"]
-    mz_dict = {}
-    for mz in mz_array:
-        int_mz = int(float(mz))
-        if int_mz not in mz_dict.keys():
-            mz_dict[int_mz] = [float(mz)]
-        else:
-            mz_dict[int_mz].append(float(mz))
-
-    removal_indices = {}
-    for i in range(len(sequence_list)):
-        if sequence_list[i] in gain:
-            if sequence_list[i] not in removal_indices.keys():
-                removal_indices[sequence_list[i]] = [i]
-            else:
-                removal_indices[sequence_list[i]].append(i)
-
+    length = len(sequence_list)
+    mz_dict = spectrum['indexed m/z dictionary']
+    intensity_dict = spectrum['indexed intensity dictionary']
+    max_intensity = max(value for list in intensity_dict.values() for value in list)
+    combined_dict = spectrum['indexed combined dictionary']
+    code_string = ""
     candidates = {}
-    for product in itertools.product(*removal_indices.values()):  # (2, 3, 1)
-        modified_sequence_list = sequence_parser.parse_sequence(sequence)
-        sorted_product = sorted(product, reverse=True)
-        for i in range(len(sorted_product)):
-            modified_sequence_list.pop(sorted_product[i])
-        modified_sequence = "".join(modified_sequence_list)
-        by_df = calculate_b_y_ions(modified_sequence)
-        match_count = 0
-        for b in by_df["b"]:
-            b_int = int(b)
-            if b_int not in mz_dict.keys():
-                continue
-            for match in mz_dict[b_int]:
-                if abs(match - b) <= tolerance:
-                    print(f"Found match at {match}")
-                    match_count += 1
-        for y in by_df["y"]:
-            y_int = int(y)
-            if y_int not in mz_dict.keys():
-                continue
-            for match in mz_dict[y_int]:
-                if abs(match - y) <= tolerance:
-                    match_count += 1
-        candidates[modified_sequence] = match_count
 
+    if len(gain) != 1:
+        for letter in gain:
+            sequence_list.insert(0, letter)
+        new_sequence = "".join(sequence_list)
+        return f"{new_sequence}", ""
+    for i in range(length + 2):
+        modified_sequence_list = sequence_list.copy()
+        modified_sequence_list.insert(i, gain[0])
+        modified_sequence = "".join(modified_sequence_list)
+        code_string += f"{modified_sequence}-"
+        by_df = calculate_b_y_ions(modified_sequence)
+        match_score = 0.0
+        match_count = 0
+        intensity_sum = 0.0
+
+        for row in by_df.itertuples():
+            b = float(row.b)
+            y = float(row.y)
+            b_int = int(b)
+            y_int = int(y)
+            if b_int in combined_dict:
+                for match in combined_dict[b_int].keys():
+                    if abs(match - b) <= tolerance:
+                        intensity_sum += combined_dict[b_int][match]
+                        match_count += 1
+            if y_int not in combined_dict:
+                continue
+            for match in combined_dict[y_int].keys():
+                if abs(match - y) <= tolerance:
+                    intensity_sum += combined_dict[y_int][match]
+                    match_count += 1
+
+        match_score = 5 * (intensity_sum / (match_count * max_intensity)) + 5 * (match_count / (2 * length - 2)) if match_count * max_intensity != 0 else 5 * (match_count / (2 * length - 2))
+        code_string += f"{match_score:.2f},"
+        candidates[modified_sequence] = match_score
+    code_string = code_string[:-1]
     best_sequence = max(candidates, key=candidates.get)
-    return f"{best_sequence}"
+    return f"{best_sequence}", code_string
 
 # snippet = '''
 # url = f"https://proteomecentral.proteomexchange.org/api/proxi/v0.1/spectra?resultType=full&usi=mzspec:PXD999007:251103_mEclipse_ncORF89-S1:scan:5001"

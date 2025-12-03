@@ -140,10 +140,8 @@ class MS2TableReader:
             self.scores = scores
             return f"mzspec:PXD{self.pxd}:{ms_run}:scan:{scan_number}:{new_sequence}/{charge}"
         elif "extra" in modification: #adds to n-term
-            gain = sequence_parser.parse_sequence(modification.split(" ")[-1])
-            for letter in gain:
-                new_sequence_list.insert(0,letter)
-            new_sequence = "".join(new_sequence_list)
+            new_sequence, scores = usi_checker.check_extra(self.sequence, modification, 0.002, self.raw_spectra[scan_number])
+            self.scores = scores
             return f"mzspec:PXD{self.pxd}:{ms_run}:scan:{scan_number}:{new_sequence}/{charge}"
         elif modification == "No mod":
             return f"mzspec:PXD{self.pxd}:{ms_run}:scan:{scan_number}:{self.sequence}/{charge}"
