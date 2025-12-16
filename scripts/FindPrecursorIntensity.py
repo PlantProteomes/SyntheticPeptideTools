@@ -26,7 +26,7 @@ def find_peak_in_scan(scan, guess_mz, tolerance=TOLERANCE):
 def get_precursor_intensity(ms1_scans,ms2_scan_time,precursor_mz,window_size=10):
     ms2_inx = next((i for i, s in enumerate(ms1_scans) if s['ScanTime'] >= ms2_scan_time), None)
     if ms2_inx is None:
-        return None, None, None, None
+        return
     
     start = max(ms2_inx - window_size, 0)
     end = min(ms2_inx + window_size + 1, len(ms1_scans))
@@ -159,6 +159,7 @@ def main():
             guess_mz,
             args.window_size
         )
+        # print(type(features), features)
 
         if features is None:
             continue
