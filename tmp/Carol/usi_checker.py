@@ -3,7 +3,9 @@ import json
 import pandas as pd
 import unimod_reader
 import sequence_parser
-import math
+import itertools
+import timeit
+from collections import defaultdict
 
 acids = {
     "A" : 71.0371,
@@ -44,10 +46,11 @@ modifications = {
     "Dehydration" : -18.010565
 }
 
+
 def calculate_b_y_ions(modified_sequence):
     """
-    TODO: Account for nested brackets.
-    :param modified_sequence:
+    Returns DataFrame of b- and y-ions given a sequence of amino acids including modifications.
+    :param str modified_sequence:
     :return b_y_ions:
     """
     sequence_list = sequence_parser.parse_sequence(modified_sequence)
@@ -82,54 +85,216 @@ def calculate_b_y_ions(modified_sequence):
     by_df = pd.DataFrame(by_dict)
     return by_df
 
-def check_location(ms_run, scan_number, sequence, modification, charge, tolerance):
+def check_location(sequence, modification, tolerance, spectrum, verbosity):
+    # TODO: Weight by intensity
+    unmodded_by_df = calculate_b_y_ions(sequence)
     candidates = {}
+    approval_list = []
     modified_sequence_list = sequence_parser.parse_sequence(sequence)
-    modified_sequence_list.insert(0, "[" + modification + "]")
-    modified_sequence = "".join(modified_sequence_list)
-    url = f"https://proteomecentral.proteomexchange.org/api/proxi/v0.1/spectra?resultType=full&usi=mzspec:PXD999005:{ms_run}:scan:{scan_number}:{modified_sequence}/{charge}"
-    response = requests.get(url)
-    analysis = json.loads(response.text)
-    intensity_array = analysis[0]["intensities"]
-    intensity_dict = {}
-    for intensity in intensity_array:
-        int_intensity = math.floor(float(intensity))
-        if int_intensity not in intensity_dict.keys():
-            intensity_dict[int_intensity] = [float(intensity)]
-        else:
-            intensity_dict[int_intensity].append(float(intensity))
-    mz_array = analysis[0]["mzs"]
-    mz_dict = {}
-    for mz in mz_array:
-        int_mz = math.floor(float(mz))
-        if int_mz not in mz_dict.keys():
-            mz_dict[int_mz] = [float(mz)]
-        else:
-            mz_dict[int_mz].append(float(mz))
+    possible_locations = unimod_reader.localize(modification)
+    mz_dict = spectrum['indexed m/z dictionary']
+    intensity_dict = spectrum['indexed intensity dictionary']
+    max_intensity = max(value for list in intensity_dict.values() for value in list)
+    combined_dict = spectrum['indexed combined dictionary']
+    code_string = ""
 
     length = len(sequence_parser.parse_sequence(sequence))
+    mod_mass = float(unimod_reader.search_unimod_by_name(modification)) if unimod_reader.search_unimod_by_name(modification) != "" else 0.0
+    is_approved = False
 
     for i in range(length + 1):
-        modified_sequence_list = sequence_parser.parse_sequence(sequence)
-        modified_sequence_list.insert(i, "[" + modification + "]")
-        modified_sequence = "".join(modified_sequence_list)
-        by_df = calculate_b_y_ions(modified_sequence)
+        intensity_sum = 0.0
+        is_approved = False
+        current_sequence = modified_sequence_list.copy()
+        current_sequence.insert(i, "[" + modification + "]")
+        current_by_df = unmodded_by_df.copy()
+        match_score = 0.0
         match_count = 0
-        for b in by_df["b"]:
-            b_int = math.floor(b)
-            if b_int not in mz_dict.keys():
+        print("current sequence", current_sequence) if verbosity else None
+
+        if possible_locations is not None:
+            if i == 0:
+                if "N-term" in possible_locations:
+                    is_approved = True
+                    code_string += "NH2-"
+                    print(f"modification {modification} on N-term approved by unimod") if verbosity else None
+                else:
+                    code_string += "nh2-"
+            elif i == length + 1:
+                if "C-term" in possible_locations:
+                    is_approved = True
+                    code_string += "COOH-"
+                    print(f"modification {modification} on C-term approved by unimod") if verbosity else None
+                else:
+                    code_string += "cooh-"
+            else:
+                if modified_sequence_list[i-1] in possible_locations:
+                    is_approved = True
+                    code_string += f"{modified_sequence_list[i - 1]}-"
+                    print(f"modification {modification} on {modified_sequence_list[i-1]} approved by unimod") if verbosity else None
+                else:
+                    code_string += f"{modified_sequence_list[i - 1].lower()}-"
+
+        for row in current_by_df.itertuples():
+            index = row.Index
+            b = float(row.b)
+            y = float(row.y)
+            if index + 1 >= i:
+                b += mod_mass
+            b_int = int(b)
+            if b_int in combined_dict:
+                for match in combined_dict[b_int].keys():
+                    if abs(match - b) <= tolerance:
+                        print(f"found matching b-ion with mass {match} and intensity {combined_dict[b_int][match]}") if verbosity else None
+                        intensity_sum += combined_dict[b_int][match]
+                        match_count += 1
+            if length - index <= i:
+                y += mod_mass
+            y_int = int(y)
+            if y_int not in combined_dict:
                 continue
-            for match in mz_dict[b_int]:
-                if abs(match - b) <= tolerance:
-                    match_count += 1
-        for y in by_df["y"]:
-            y_int = math.floor(y)
-            if y_int not in mz_dict.keys():
-                continue
-            for match in mz_dict[y_int]:
+            for match in combined_dict[y_int].keys():
                 if abs(match - y) <= tolerance:
+                    print(f"found matching y-ion with mass {match} and intensity {combined_dict[y_int][match]}") if verbosity else None
+                    intensity_sum += combined_dict[y_int][match]
+                    match_count += 1
+        print(f"Sum of all found intensities: {intensity_sum}. Number of matches: {match_count}. Maximum intensity of spectrum: {max_intensity}.") if verbosity else None
+        match_score = 5 * (intensity_sum / (match_count * max_intensity)) + 5 * (match_count / (2 * length - 2)) if match_count * max_intensity != 0 else 5 * (match_count / (2 * length - 2))
+        print(f"Match score: 5 * {intensity_sum} / ({match_count} * {max_intensity}) + 5 * ({match_count} / (2 * length - 2)) = {match_score}") if verbosity else None
+        code_string += f"{match_score:.2f}," if i < length else f"{match_score:.2f}"
+        candidates["".join(current_sequence)] = match_score
+        approval_list.append(is_approved)
+
+    best_sequence = max(candidates, key=candidates.get)
+    return f"{best_sequence}", code_string
+
+def check_missing(sequence, modification, tolerance, spectrum):
+    loss = sequence_parser.parse_sequence(modification.split(" ")[-1])
+    sequence_list = sequence_parser.parse_sequence(sequence)
+    mz_dict = spectrum['indexed m/z dictionary']
+    intensity_dict = spectrum['indexed intensity dictionary']
+    max_intensity = max(value for list in intensity_dict.values() for value in list)
+    combined_dict = spectrum['indexed combined dictionary']
+    code_string = ""
+
+    letter_indices = {}
+    for index, chara in enumerate(sequence_list):
+        letter_indices.setdefault(chara, []).append(index)
+
+    removal_indices = []
+    for chara in loss:
+        removal_indices.append(letter_indices[chara])
+
+    candidates = {}
+    known_products = set()
+    for product in itertools.product(*removal_indices): # (2, 3, 1)
+        # This can be optimized better for speed because itertools.product generates a lot of unnecessary stuff
+        if len(set(product)) != len(product):
+            continue
+        product_set = frozenset(product)
+        if product_set in known_products:
+            continue
+        known_products.add(product_set)
+        modified_sequence_list = sequence_parser.parse_sequence(sequence)
+        length = len(modified_sequence_list)
+        sorted_product = sorted(product, reverse=True)
+        modified_sequence_display = modified_sequence_list.copy()
+        for i in range(len(sorted_product)):
+            modified_sequence_display[sorted_product[i]] = "_"
+            modified_sequence_list.pop(sorted_product[i])
+        modified_sequence = "".join(modified_sequence_list)
+        code_string += f"{"".join(modified_sequence_display)}-"
+        by_df = calculate_b_y_ions(modified_sequence)
+        match_score = 0.0
+        match_count = 0
+        intensity_sum = 0.0
+
+        for row in by_df.itertuples():
+            b = float(row.b)
+            y = float(row.y)
+            b_int = int(b)
+            y_int = int(y)
+            if b_int in combined_dict:
+                for match in combined_dict[b_int].keys():
+                    if abs(match - b) <= tolerance:
+                        intensity_sum += combined_dict[b_int][match]
+                        match_count += 1
+            if y_int not in combined_dict:
+                continue
+            for match in combined_dict[y_int].keys():
+                if abs(match - y) <= tolerance:
+                    intensity_sum += combined_dict[y_int][match]
                     match_count += 1
 
-        candidates[modified_sequence] = match_count
+        match_score = 5 * (intensity_sum / (match_count * max_intensity)) + 5 * (match_count / (2 * length - 2)) if match_count * max_intensity != 0 else 5 * (match_count / (2 * length - 2))
+        code_string += f"{match_score:.2f},"
+        candidates[modified_sequence] = match_score
+    code_string = code_string[:-1]
     best_sequence = max(candidates, key=candidates.get)
-    return f"{best_sequence}"
+    return f"{best_sequence}", code_string
+
+def check_extra(sequence, modification, tolerance, spectrum):
+    # TODO: implement extra for gain of one amino acid (should be similar to check_location)
+
+    gain = sequence_parser.parse_sequence(modification.split(" ")[-1])
+    sequence_list = sequence_parser.parse_sequence(sequence)
+    length = len(sequence_list)
+    mz_dict = spectrum['indexed m/z dictionary']
+    intensity_dict = spectrum['indexed intensity dictionary']
+    max_intensity = max(value for list in intensity_dict.values() for value in list)
+    combined_dict = spectrum['indexed combined dictionary']
+    code_string = ""
+    candidates = {}
+
+    if len(gain) != 1:
+        for letter in gain:
+            sequence_list.insert(0, letter)
+        new_sequence = "".join(sequence_list)
+        return f"{new_sequence}", ""
+    for i in range(length + 2):
+        modified_sequence_list = sequence_list.copy()
+        modified_sequence_list.insert(i, gain[0])
+        modified_sequence = "".join(modified_sequence_list)
+        code_string += f"{modified_sequence}-"
+        by_df = calculate_b_y_ions(modified_sequence)
+        match_score = 0.0
+        match_count = 0
+        intensity_sum = 0.0
+
+        for row in by_df.itertuples():
+            b = float(row.b)
+            y = float(row.y)
+            b_int = int(b)
+            y_int = int(y)
+            if b_int in combined_dict:
+                for match in combined_dict[b_int].keys():
+                    if abs(match - b) <= tolerance:
+                        intensity_sum += combined_dict[b_int][match]
+                        match_count += 1
+            if y_int not in combined_dict:
+                continue
+            for match in combined_dict[y_int].keys():
+                if abs(match - y) <= tolerance:
+                    intensity_sum += combined_dict[y_int][match]
+                    match_count += 1
+
+        match_score = 5 * (intensity_sum / (match_count * max_intensity)) + 5 * (match_count / (2 * length - 2)) if match_count * max_intensity != 0 else 5 * (match_count / (2 * length - 2))
+        code_string += f"{match_score:.2f},"
+        candidates[modified_sequence] = match_score
+    code_string = code_string[:-1]
+    best_sequence = max(candidates, key=candidates.get)
+    return f"{best_sequence}", code_string
+
+# snippet = '''
+# url = f"https://proteomecentral.proteomexchange.org/api/proxi/v0.1/spectra?resultType=full&usi=mzspec:PXD999007:251103_mEclipse_ncORF89-S1:scan:5001"
+# response = requests.get(url)
+# analysis = json.loads(response.text)
+# '''
+
+
+# if __name__ == "__main__":
+#     print(timeit.timeit(stmt="check_missing('251103_mEclipse_ncORF89-S1', 4343, 'AQDSQVLEEER[Label:13C(6)15N(4)]', 'missing QV', 999007, 0.002)",setup="from __main__ import check_missing", number=10))
+#     print(timeit.timeit(stmt="check_location('251103_mEclipse_ncORF89-S1', 5001, 'AQDSQVLEEER[Label:13C(6)15N(4)]', 'Asp->Gly', 999007, 0.002)",setup="from __main__ import check_location", number=10))
+#     print(timeit.timeit(stmt=snippet, globals=globals(), number=10))
+
+# print(check_location('AQDSQVLEEER[Label:13C(6)15N(4)]', 'Oxidation', 999007, 0.002))
