@@ -2,7 +2,7 @@
 # ChatGPT also gave substantial coding assistance.
 # py GenerateMS2Table.py --mzml_file --previous_list --precursor_mz
 # py "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\SyntheticPeptideTools\scripts\GenerateMS2Table.py" --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\250402_mEclipse_QC_ncORF-097.mzML" --precursor_mz 708.3294
-# py "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\SyntheticPeptideTools\scripts\GenerateMS2Table.py" --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\251103_mEclipse_ncORF89-S3.mzML" --precursor_mz 657.31400280985
+# py "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\repository\SyntheticPeptideTools\scripts\GenerateMS2Table.py" --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\251203_mEclipse_ncORF89-AlCl3.mzML" --precursor_mz 657.31400280985
 
 import os
 import argparse
@@ -105,7 +105,7 @@ class GenerateMS2Table:
 
     # creates new merged csv file
     def write_csv(self):
-        fieldnames = ["file root", "scan number", "injection time", "scan time", "total ion current", "precursor m/z", "precursor charge", "precursor mass delta", "confidence", "modification", "usi", "comments"]
+        fieldnames = ["file root", "scan number", "injection time", "scan time", "total ion current", "maximum precursor intensity", "relative intensity", "precursor m/z", "precursor charge", "precursor mass delta", "confidence", "type", "modification", "usi", "comments"]
         with open("ms2_table.csv", "w", newline="") as file:
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
