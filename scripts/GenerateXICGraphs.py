@@ -1,8 +1,3 @@
-# py GenerateXICGraphs.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\251112_mEclipse_ncORF89-S4_MC.mzML" --output_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\peptide_089\xic_plots_4ppm\251103_mEclipse_ncORF89-MC_XICPlots.pdf --modifications "TargetPeptide:657.3140028,Aluminum:669.2930,Sodium:668.3050,Iron:683.7697,Aluminum+Deamidation:669.7850,Calcium:676.2875,sodium+deamidation:668.7970" --scan_range 4000,6000 
-# py GenerateXICGraphs.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\NEW_250402_mEclipse_QC_ncORF-089.mzML" --output_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\peptide_089\xic_plots\251203_mEclipse_ncORF89-AlK(S04)2_XICPlots.pdf --modifications "TargetPeptide:657.3140028,Deamidation:657.8060,Oxidation:665.3115,Calcium+Deamidated:676.7795,Aluminum:669.2930,Nickel+Deamidation:685.7659,Sodium:668.3050,Nickel:685.2738,Iron:683.7697,Zinc:688.2707,Propionamide:692.8326,Diethyl:685.3453,Methyl:664.3218,Dioxidation:673.3089,Formyl:671.3115,Dehydration:657.3140,Phospho:697.2972,Aluminum+Deamidation:669.7850,Calcium:676.2875" --scan_range 4000,6000
-# py GenerateXICGraphs.py --mzml_file "C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\mzml_files\NEW_250402_mEclipse_QC_ncORF-089.mzML" --output_file C:\Users\miawc\OneDrive\Documents\ISB_INTERNSHIP\mia_data\peptide_089\xic_plots_4ppm\250402_mEclipse_QC_ncORF-089_XICPlots.pdf --modifications "TargetPeptide:657.3140028,Deamidation:657.8060,Oxidation:665.3115,Calcium+Deamidated:676.7795,Aluminum:669.2930,Nickel+Deamidation:685.7659,Sodium:668.3050,Nickel:685.2738,Iron:683.7697,Zinc:688.2707,Propionamide:692.8326,Diethyl:685.3453,Methyl:664.3218,Dioxidation:673.3089,Formyl:671.3115,Dehydration:657.3140,Phospho:697.2972,Aluminum+Deamidation:669.7850,Calcium:676.2875,sodium+deamidation:668.7970" --scan_range 2000,4000 
-
-
 import os
 import argparse
 import matplotlib.pyplot as plt
@@ -11,11 +6,9 @@ from pyteomics import mzml
 import numpy as np
 
 def ppm_to_da(mz, ppm):
-    """Convert ppm tolerance to Daltons"""
     return mz * ppm / 1e6
 
 def read_xic(mzml_file, target_mz, ppm=4.0, scan_range=None):
-    """Extract MS1 intensities for a given precursor m/z ± ppm"""
     scan_numbers, intensities = [], []
     tol_da = ppm_to_da(target_mz, ppm)
 
@@ -38,10 +31,6 @@ def read_xic(mzml_file, target_mz, ppm=4.0, scan_range=None):
     return scan_numbers, intensities
 
 def read_ms2(mzml_file):
-    """
-    Extract MS2 precursor m/z and the actual MS2 scan number.
-    Returns a list of tuples: (precursor_mz, ms1_scan, ms2_scan)
-    """
     ms2_marks = []
     with mzml.read(mzml_file) as reader:
         prev_ms1_scan = None
@@ -65,9 +54,10 @@ def generate_xic_pdf(mzml_file, mod_dict, output_file, scan_range=None, ppm=4.0)
 
             tol_da = ppm_to_da(target_mz, ppm)
 
-            xic_scans, xic_intensity = read_xic(
-                mzml_file, target_mz, ppm, scan_range
-            )
+            xic_scans, xic_intensity = read_xic(mzml_file, target_mz, ppm, scan_range)
+            if mod_name.lower() == "TargetPeptide":
+                xic_intensity = [x / 500 for x in xic_intensity]
+
             scan_to_intensity = dict(zip(xic_scans, xic_intensity))
 
             # Select MS2 events matching this target m/z
@@ -77,7 +67,6 @@ def generate_xic_pdf(mzml_file, mod_dict, output_file, scan_range=None, ppm=4.0)
                 if abs(mz - target_mz) <= tol_da
             ]
 
-            # X and Y for stars
             offset = 1.05
             stars_x = [ms2_scan for ms2_scan, _ in ms2_events]
             stars_y = [scan_to_intensity.get(prev_ms1_scan, 0) * offset for _, prev_ms1_scan in ms2_events]
@@ -140,13 +129,7 @@ def main():
 
     scan_range = parse_range(args.scan_range) if args.scan_range else None
 
-    generate_xic_pdf(
-        args.mzml_file,
-        mod_dict,
-        args.output_file,
-        scan_range,
-        args.ppm
-    )
+    generate_xic_pdf(args.mzml_file,mod_dict,args.output_file,scan_range,args.ppm)
 
 if __name__ == "__main__":
     main()
