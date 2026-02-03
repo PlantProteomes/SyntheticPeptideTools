@@ -1,3 +1,6 @@
+# example usage:
+# python GenerateXICGraphs.py --mzml_file example.mzML --output_file xic_plots.pdf --modifications "Mod1:500.2,Mod2:600.3" --scan_range 3000,6000 --ppm 4.0
+
 import os
 import argparse
 import matplotlib.pyplot as plt
@@ -8,7 +11,7 @@ import numpy as np
 def ppm_to_da(mz, ppm):
     return mz * ppm / 1e6
 
-def read_xic(mzml_file, target_mz, ppm=4.0, scan_range=None):
+def read_xic(mzml_file, target_mz, ppm=4.0, scan_range=None, normalized=True):
     scan_numbers, intensities = [], []
     tol_da = ppm_to_da(target_mz, ppm)
 
@@ -24,6 +27,12 @@ def read_xic(mzml_file, target_mz, ppm=4.0, scan_range=None):
 
                 mask = (mz_array >= target_mz - tol_da) & (mz_array <= target_mz + tol_da)
                 xic_intensity = intensity_array[mask].sum()
+
+                if normalized:
+                    inj_time = spectrum.get("scanList", {}) \
+                                       .get("scan", [{}])[0] \
+                                       .get("ion injection time", 1) or 1
+                    xic_intensity = (xic_intensity / inj_time) * 100
 
                 scan_numbers.append(scan_number)
                 intensities.append(xic_intensity)
@@ -45,7 +54,7 @@ def read_ms2(mzml_file):
                 ms2_marks.append((precursor_mz, prev_ms1_scan, scan_number))
     return ms2_marks
 
-def generate_xic_pdf(mzml_file, mod_dict, output_file, scan_range=None, ppm=4.0):
+def generate_xic_pdf(mzml_file, mod_dict, output_file, scan_range=None, ppm=4.0,normalized=True):
     all_ms2_marks = read_ms2(mzml_file)
 
     with PdfPages(output_file) as pdf:
@@ -54,8 +63,8 @@ def generate_xic_pdf(mzml_file, mod_dict, output_file, scan_range=None, ppm=4.0)
 
             tol_da = ppm_to_da(target_mz, ppm)
 
-            xic_scans, xic_intensity = read_xic(mzml_file, target_mz, ppm, scan_range)
-            if mod_name.lower() == "TargetPeptide":
+            xic_scans, xic_intensity = read_xic(mzml_file, target_mz, ppm, scan_range,normalized=normalized)
+            if mod_name == "TargetPeptide":
                 xic_intensity = [x / 500 for x in xic_intensity]
 
             scan_to_intensity = dict(zip(xic_scans, xic_intensity))
@@ -95,7 +104,7 @@ def generate_xic_pdf(mzml_file, mod_dict, output_file, scan_range=None, ppm=4.0)
                 )
 
             ax.set_xlabel('Scan Number')
-            ax.set_ylabel('Intensity')
+            ax.set_ylabel("Normalized Intensity (XIC / ms × 100)" if normalize else "Intensity (XIC)")
             ax.set_title(f'XIC for {mod_name}: {target_mz} ± {ppm} ppm')
             ax.grid(True)
 
@@ -119,6 +128,8 @@ def main():
                         help="Optional scan range, e.g. 3000,6000")
     parser.add_argument("--ppm", type=float, default=4.0,
                         help="Mass tolerance in ppm")
+    parser.add_argument("--no_normalize", action="store_true",
+                    help="Disable normalization")
 
     args = parser.parse_args()
 
@@ -129,7 +140,9 @@ def main():
 
     scan_range = parse_range(args.scan_range) if args.scan_range else None
 
-    generate_xic_pdf(args.mzml_file,mod_dict,args.output_file,scan_range,args.ppm)
+    normalize = not args.no_normalize
+
+    generate_xic_pdf(args.mzml_file,mod_dict,args.output_file,scan_range,args.ppm,normalize)
 
 if __name__ == "__main__":
     main()
