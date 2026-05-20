@@ -64,7 +64,7 @@ def target_in_sim_window(spectrum, target_mz):
 
     return start <= target_mz <= end
 
-
+# read XIC for given target m/z and mode, applying ppm tolerance and optional scan range filter
 def read_xic(
     mzml_file,
     target_mz,
@@ -93,6 +93,7 @@ def read_xic(
             ):
                 continue
 
+            # PRM/SIM restriction
             if mode == "PRM":
 
                 if not target_in_sim_window(spectrum, target_mz):
@@ -123,7 +124,7 @@ def read_xic(
 
     return scan_numbers, np.array(intensities)
 
-
+# compute mass deltas in ppm for observed m/z vs target m/z across scans, with point size scaled by signal intensity
 def compute_mass_deltas(
     mzml_file,
     target_mz,
@@ -152,6 +153,7 @@ def compute_mass_deltas(
             ):
                 continue
 
+            # PRM restriction
             if mode == "PRM":
 
                 if not target_in_sim_window(spectrum, target_mz):
@@ -190,7 +192,8 @@ def compute_mass_deltas(
 
     return scan_numbers, delta_ppms, signals
 
-
+# compute average delta ppm in a window of 5 scans starting from the first scan >= specified start scan, to reveal any trends in mass accuracy that may correlate with presence of target peptide or other modifications
+# take the five most intense points in the window to compute the average, to focus on scans where target peptide is likely present and reduce noise from low-intensity scans where mass accuracy may be less reliable
 def average_delta_window(scans, deltas, start_scan):
     for i, scan in enumerate(scans):
         if scan >= start_scan:
@@ -206,7 +209,7 @@ def average_delta_window(scans, deltas, start_scan):
 
     return None, None, None
 
-
+# read TIC across scans, applying optional scan range filter and normalization by injection time
 def read_tic(
     mzml_file,
     scan_range=None,
@@ -249,7 +252,7 @@ def read_tic(
 
     return scan_numbers, np.array(intensities)
 
-
+# read injection time for MS1 spectra where target m/z is detected, applying ppm tolerance and optional scan range filter
 def read_injection_time(
     mzml_file,
     target_mz,
@@ -307,6 +310,7 @@ def read_injection_time(
 
     return scan_numbers, injection_times
 
+# main function to parse arguments, detect acquisition mode, and generate PDF with XIC, mass delta, TIC, and injection time plots for specified modifications and scan ranges
 
 def main():
 
@@ -332,6 +336,7 @@ def main():
     for mod in args.modifications.split(","):
 
         name, mz = mod.split(":")
+
         mods.append((name.strip(), float(mz.strip())))
 
     scan_ranges = (
@@ -352,6 +357,8 @@ def main():
 
         for scan_range in scan_ranges:
 
+            # page 1: XIC overlay with new scaling logic to make TargetPeptide more visible when present, while preserving relative intensities of other modifications
+
             fig, ax = plt.subplots(figsize=(10, 6))
 
             xic_data = {}
@@ -368,104 +375,351 @@ def main():
                 )
 
                 if len(scans):
-                    xic_data[name] = (scans, intensities, mz)
+
+                    xic_data[name] = (
+                        scans,
+                        intensities,
+                        mz
+                    )
+            
+            scale_factor = 1.0
+
+            if "TargetPeptide" in xic_data:
+
+                target_max = xic_data["TargetPeptide"][1].max()
+
+                other_maxes = []
+
+                for key in xic_data:
+
+                    if key == "TargetPeptide":
+                        continue
+
+                    other_maxes.append(
+                        xic_data[key][1].max()
+                    )
+
+                if len(other_maxes):
+
+                    second_tallest = max(other_maxes)
+
+                    desired_target_height = (
+                        second_tallest * 1.5
+                    )
+
+                    if desired_target_height > 0:
+
+                        scale_factor = (
+                            target_max
+                            / desired_target_height
+                        )
+
+            for i, (name, _) in enumerate(mods):
+
+                if name not in xic_data:
+                    continue
+
+                scans, intensities, mz = xic_data[name]
+
+                color = cmap(i % cmap.N)
+
+                if (
+                    name == "TargetPeptide"
+                    and scale_factor != 1
+                ):
+
+                    intensities = intensities / 1e5
+
+                    label = (
+                        f"{name} "
+                        f"(/1e5)"
+                        f"(m/z {mz:.4f})"
+                    )
+
+                else:
+
+                    label = f"{name} (m/z {mz:.4f})"
+
+                ax.plot(
+                    scans,
+                    intensities,
+                    linewidth=2,
+                    color=color,
+                    label=label
+                )
+
+            if scan_range:
+                ax.set_xlim(scan_range)
+
+            if args.max_y:
+                ax.set_ylim(0, args.max_y)
+
+            ax.set_xlabel("Scan Number")
+
+            ax.set_ylabel(
+                "Normalized XIC (Intensity / ms)"
+                if normalize
+                else "XIC Intensity"
+            )
+
+            ax.set_title(
+                f"{mode} XIC Overlay "
+                f"(± {args.xic_ppm} ppm)"
+            )
+
+            ax.legend(
+                loc="upper left",
+                bbox_to_anchor=(0.01, 0.99),
+                frameon=True
+            )
+
+            ax.grid(True)
+
+            pdf.savefig(fig)
+            plt.close(fig)
+
+            # page 2: mass delta vs scan number, with point size scaled by signal intensity, and horizontal line at 0 ppm to indicate perfect match
 
             fig, ax = plt.subplots(figsize=(10, 6))
 
             xbar_values = []
 
+            for scan_range in scan_ranges:
+
+                fig, ax = plt.subplots(figsize=(10, 6))
+
+                xic_data = {}
+
+                for name, mz in mods:
+
+                    scans, intensities = read_xic(
+                        args.mzml_file,
+                        mz,
+                        mode,
+                        args.xic_ppm,
+                        scan_range,
+                        normalize
+                    )
+
+                    if len(scans):
+                        xic_data[name] = (scans, intensities, mz)
+
+                fig, ax = plt.subplots(figsize=(10, 6))
+
+                xbar_values = []
+
+                for i, (name, mz) in enumerate(mods):
+
+                    color = cmap(i % cmap.N)
+
+                    scans, deltas, signals = compute_mass_deltas(
+                        args.mzml_file,
+                        mz,
+                        mode,
+                        args.delta_ppm,
+                        scan_range
+                    )
+
+                    if not scans:
+                        continue
+
+                    signals = np.array(signals)
+
+                    sizes = 18 + (signals / signals.max()) * 100
+
+                    ax.scatter(scans, deltas, s=sizes, color=color,
+                            label=f"{name} ({mz:.4f})")
+
+                    if len(signals) >= 5:
+
+                        best_idx = np.argmax(
+                            [np.sum(signals[j:j+5]) for j in range(len(signals)-4)]
+                        )
+
+                        w_scans = scans[best_idx:best_idx+5]
+                        w_deltas = deltas[best_idx:best_idx+5]
+
+                        xbar = np.mean(w_deltas)
+                        xbar_values.append(xbar)
+
+                        # rectangle
+                        rect = Rectangle(
+                            (min(w_scans), min(w_deltas)),
+                            max(w_scans) - min(w_scans),
+                            max(w_deltas) - min(w_deltas),
+                            fill=False,
+                            edgecolor=color,
+                            linewidth=2
+                        )
+                        ax.add_patch(rect)
+
+                        # CLEAN ANNOTATION (no overlap)
+                        ax.annotate(
+                            f"x\u0304{i+1} = {xbar:.3f}",
+                            xy=(np.mean(w_scans), np.mean(w_deltas)),
+                            xytext=(0, 18),
+                            textcoords="offset points",
+                            ha="center",
+                            va="bottom",
+                            fontsize=9,
+                            color=color,
+                            bbox=dict(
+                                facecolor="white",
+                                edgecolor="none",
+                                alpha=0.75
+                            ),
+                            zorder=10
+                        )
+
+                ax.axhline(0, linestyle="--", linewidth=1)
+                ax.set_ylim(-6, 7)
+
+                if scan_range:
+                    ax.set_xlim(scan_range)
+
+                # bottom-right difference (clean + readable)
+                if len(xbar_values) >= 2:
+                    diff = xbar_values[0] - xbar_values[1]
+
+                    ax.annotate(
+                        f"x\u03041 - x\u03042 = {diff:.3f}",
+                        xy=(1, 0),
+                        xycoords="axes fraction",
+                        xytext=(-10, 10),
+                        textcoords="offset points",
+                        ha="right",
+                        va="bottom",
+                        bbox=dict(
+                            facecolor="white",
+                            edgecolor="none",
+                            alpha=0.75
+                        ),
+                        fontsize=10,
+                        zorder=10
+                    )
+
+                ax.set_xlabel("Scan Number")
+                ax.set_ylabel("Mass Delta (ppm)")
+                ax.set_title(f"{mode} Mass Delta vs Scan Number")
+
+                ax.legend(
+                    loc="upper left",
+                    bbox_to_anchor=(0.01, 0.99),
+                    frameon=True
+                )
+
+                ax.grid(True)
+
+                pdf.savefig(fig)
+                plt.close(fig)
+
+
+            # page 3: TIC vs scan number, with annotation of scan with highest TIC, and optional normalization by injection time to reveal trends that may be obscured by varying injection times
+
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            scans, tic_intensity = read_tic(
+                args.mzml_file,
+                scan_range,
+                normalize
+            )
+
+            if len(scans):
+
+                ax.plot(
+                    scans,
+                    tic_intensity,
+                    color = cmap(i % cmap.N),
+                    linewidth=2,
+                    label="Total Ion Chromatogram"
+                )
+
+                peak_idx = np.argmax(tic_intensity)
+
+                peak_scan = scans[peak_idx]
+
+                peak_intensity = tic_intensity[peak_idx]
+
+                ax.annotate(
+                    f"Scan {peak_scan}",
+                    xy=(peak_scan, peak_intensity),
+                    xytext=(10, 10),
+                    textcoords="offset points",
+                    arrowprops=dict(
+                        arrowstyle="->"
+                    ),
+                    fontsize=10
+                )
+
+            if scan_range:
+                ax.set_xlim(scan_range)
+
+            if args.max_y:
+                ax.set_ylim(0, args.max_y)
+
+            ax.set_xlabel("Scan Number")
+
+            ax.set_ylabel(
+                "Normalized TIC (Intensity / ms)"
+                if normalize
+                else "TIC Intensity"
+            )
+
+            ax.set_title(
+                f"{mode} Total Ion Chromatogram"
+            )
+
+            ax.legend(
+                loc="upper left",
+                bbox_to_anchor=(0.01, 0.99),
+                frameon=True
+            )
+
+            ax.grid(True)
+
+            pdf.savefig(fig)
+            plt.close(fig)
+
+            # page 4: injection time vs scan number for MS1 spectra where target m/z is detected, to reveal any trends in injection time that may correlate with presence of target peptide or other modifications
+
+            fig, ax = plt.subplots(figsize=(10, 6))
+
             for i, (name, mz) in enumerate(mods):
 
                 color = cmap(i % cmap.N)
 
-                scans, deltas, signals = compute_mass_deltas(
+                scans, inj = read_injection_time(
                     args.mzml_file,
                     mz,
                     mode,
-                    args.delta_ppm,
+                    args.xic_ppm,
                     scan_range
                 )
 
                 if not scans:
                     continue
 
-                signals = np.array(signals)
-
-                sizes = 18 + (signals / signals.max()) * 100
-
-                ax.scatter(scans, deltas, s=sizes, color=color,
-                           label=f"{name} ({mz:.4f})")
-
-                if len(signals) >= 5:
-
-                    best_idx = np.argmax(
-                        [np.sum(signals[j:j+5]) for j in range(len(signals)-4)]
-                    )
-
-                    w_scans = scans[best_idx:best_idx+5]
-                    w_deltas = deltas[best_idx:best_idx+5]
-
-                    xbar = np.mean(w_deltas)
-                    xbar_values.append(xbar)
-
-                    # draw rectangle around the 5 points and annotate with xbar
-                    rect = Rectangle(
-                        (min(w_scans), min(w_deltas)),
-                        max(w_scans) - min(w_scans),
-                        max(w_deltas) - min(w_deltas),
-                        fill=False,
-                        edgecolor=color,
-                        linewidth=1,
-                    )
-                    ax.add_patch(rect)
-
-                    ax.annotate(
-                        f"x\u0304{i+1} = {xbar:.2f}",
-                        xy=(np.mean(w_scans), np.mean(w_deltas)),
-                        xytext=(0, 18),
-                        textcoords="offset points",
-                        ha="center",
-                        va="bottom",
-                        fontsize=11,
-                        color=color,
-                        bbox=dict(
-                            facecolor="white",
-                            edgecolor="none",
-                            alpha=0.75
-                        ),
-                        zorder=10
-                    )
-
-            ax.axhline(0, linestyle="--", linewidth=1)
-            ax.set_ylim(-6, 7)
+                ax.plot(
+                    scans,
+                    inj,
+                    marker="*",
+                    linewidth=2,
+                    color=color,
+                    label=f"{name} ({mz:.4f})"
+                )
 
             if scan_range:
                 ax.set_xlim(scan_range)
 
-            # bottom-right difference (clean + readable)
-            if len(xbar_values) >= 2:
-                diff = xbar_values[0] - xbar_values[1]
-
-                ax.annotate(
-                    f"x\u03041 - x\u03042 = {diff:.2f}",
-                    xy=(1, 0),
-                    xycoords="axes fraction",
-                    xytext=(-10, 10),
-                    textcoords="offset points",
-                    ha="right",
-                    va="bottom",
-                    bbox=dict(
-                        facecolor="white",
-                        edgecolor="none",
-                        alpha=0.75
-                    ),
-                    fontsize=12,
-                    zorder=10
-                )
-
             ax.set_xlabel("Scan Number")
-            ax.set_ylabel("Mass Delta (ppm)")
-            ax.set_title(f"{mode} Mass Delta vs Scan Number")
+
+            ax.set_ylabel(
+                "Ion Injection Time (ms)"
+            )
+
+            ax.set_title(
+                f"{mode} Injection Time"
+            )
 
             ax.legend(
                 loc="upper left",
