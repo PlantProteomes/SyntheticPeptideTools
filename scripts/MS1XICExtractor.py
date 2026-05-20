@@ -549,11 +549,10 @@ def main():
                             max(w_deltas) - min(w_deltas),
                             fill=False,
                             edgecolor=color,
-                            linewidth=2
+                            linewidth=1
                         )
                         ax.add_patch(rect)
 
-                        # CLEAN ANNOTATION (no overlap)
                         ax.annotate(
                             f"x\u0304{i+1} = {xbar:.3f}",
                             xy=(np.mean(w_scans), np.mean(w_deltas)),
@@ -561,7 +560,7 @@ def main():
                             textcoords="offset points",
                             ha="center",
                             va="bottom",
-                            fontsize=9,
+                            fontsize=11,
                             color=color,
                             bbox=dict(
                                 facecolor="white",
@@ -577,7 +576,6 @@ def main():
                 if scan_range:
                     ax.set_xlim(scan_range)
 
-                # bottom-right difference (clean + readable)
                 if len(xbar_values) >= 2:
                     diff = xbar_values[0] - xbar_values[1]
 
@@ -594,7 +592,7 @@ def main():
                             edgecolor="none",
                             alpha=0.75
                         ),
-                        fontsize=10,
+                        fontsize=12,
                         zorder=10
                     )
 
