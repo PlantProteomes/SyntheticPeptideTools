@@ -1,7 +1,9 @@
 # SyntheticPeptideTools
-Code to explore MS runs of synthetic peptides
+This repository contains code for analyzing MS1 and MS2 mass spectrometry data from mzML files to support peptide & proteoform analysis in synthetic peptides.
 
 # Usage of the main SyntheticPeptideTools programs
+## MS1XICExtractor.py
+The MS1XICExtractor tool extracts signal of various precursor ions. The output is a multi-page pdf showing XICs, mass accuracy deviations, total ion current (TIC), and ion injection time trends. 
 ## MS1XICExtractor Command-line Arguments 
 
 | Argument | Description | Default | Example |
