@@ -1,9 +1,11 @@
+# MS2VariantFinder
 MS2VariantFinder generates a table of all MS2 scans in an mzML file along with relevant data such as retention time, ion injection time, total ion current, etc. It also predictively generates a USI based on fragment ion information.
 
 You can run two scripts in this directory:
 - `generate_ms2_table.py`: This is the main MS2VariantFinder script.
 - `generate_stdev_plot.py`: This is a supplement script for constraining delta masses of specific modifications.
 
+## Generating MS2 tables with predicted USIs
 `generate_ms2_table.py` takes in the following command-line arguments:
 
 | Argument | Description | Default | Example |
@@ -47,6 +49,7 @@ You can run two scripts in this directory:
 - "total ion intensity": The sum of all the identified intensities +/- 10 MS1 scans away from the precursor MS1 scan.
 - "maximum precursor intensity": The maximum of the set of all the identified intensities +/- 10 MS1 scans away from the precursor MS1 scan.
 
+## Generating standard deviation plots to constrain modification delta masses
 `generate_stdev_plot.py` takes in the following command-line arguments:
 
 | Argument | Description | Default | Example |
