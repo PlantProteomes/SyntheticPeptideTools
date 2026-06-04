@@ -1,5 +1,5 @@
-**requirements.txt**
-```text
 matplotlib
-pyteomics
 numpy
+pyteomics
+unimod
+fastobo
