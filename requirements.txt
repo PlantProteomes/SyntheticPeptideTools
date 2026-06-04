@@ -1,0 +1,5 @@
+**requirements.txt**
+```text
+matplotlib
+pyteomics
+numpy
