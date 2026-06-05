@@ -1,4 +1,4 @@
-# How to run MS1XICExtracto 
+# How to run MS1XICExtractor
 ## Setup
 Follow instructions in [installation](https://github.com/PlantProteomes/SyntheticPeptideTools/tree/main#installation) to download the repository on your computer and install required packages. 
 
