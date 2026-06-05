@@ -10,6 +10,10 @@ MS1XICExtractor creates extracted ion chromatograms (XICs) to analyze the abunda
 For more information, please consult [MS1XICExtractor.md](https://github.com/PlantProteomes/SyntheticPeptideTools/blob/main/scripts/MS1XICExtractor.md).
 
 # Installation 
-## Main packages
+## Clone the repository 
+Navigate to a folder you would like the repository to be stored, then run \
 git clone https://github.com/PlantProteomes/SyntheticPeptideTools.git \
+to create a folder called SyntheticPeptideTools. 
+## Install required python packages 
+run: \
 pip install -r requirements.txt
