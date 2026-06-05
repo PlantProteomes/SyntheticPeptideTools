@@ -11,4 +11,5 @@ For more information, please consult [MS1XICExtractor.md](https://github.com/Pla
 
 # Installation 
 ## Main packages
+git clone https://github.com/PlantProteomes/SyntheticPeptideTools.git
 pip install -r requirements.txt
