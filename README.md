@@ -12,8 +12,8 @@ For more information, please consult [MS1XICExtractor.md](https://github.com/Pla
 # Installation 
 ## Clone the repository 
 Navigate to a folder you would like the repository to be stored, then run \
-git clone https://github.com/PlantProteomes/SyntheticPeptideTools.git \
+`git clone https://github.com/PlantProteomes/SyntheticPeptideTools.git` \
 to create a folder called SyntheticPeptideTools. 
 ## Install required python packages 
 run: \
-pip install -r requirements.txt
+`pip install -r requirements.txt`
