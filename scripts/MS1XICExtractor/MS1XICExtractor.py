@@ -7,6 +7,7 @@ from pyteomics import mzml
 import numpy as np
 import re
 from matplotlib.patches import Rectangle
+import gzip 
 
 def ppm_to_da(mz, ppm):
     return mz * ppm / 1e6
@@ -21,26 +22,33 @@ def parse_ranges(range_str):
 
     return ranges
 
+def open_mzml_file(filename):
+    if filename.endswith(".gz"):
+        return gzip.open(filename, "rb")
+    else:
+        return open(filename, "rb")
+
 # detect whether the file is DDA or PRM based on presence of SIM filter strings in MS1 spectra
 def detect_acquisition_mode(mzml_file):
 
-    with mzml.read(mzml_file) as reader:
+    with open_mzml_file(mzml_file) as infile:
+        with mzml.read(infile) as reader:
 
-        for spectrum in reader:
+            for spectrum in reader:
+    
+                if spectrum.get("ms level", 1) != 1:
+                    continue
+    
+                try:
+                    scan = spectrum["scanList"]["scan"][0]
+                    filterstring = scan.get("filter string", "")
+                except Exception:
+                    filterstring = ""
+    
+                if "SIM" in filterstring.upper():
+                    return "PRM"
 
-            if spectrum.get("ms level", 1) != 1:
-                continue
-
-            try:
-                scan = spectrum["scanList"]["scan"][0]
-                filterstring = scan.get("filter string", "")
-            except Exception:
-                filterstring = ""
-
-            if "SIM" in filterstring.upper():
-                return "PRM"
-
-    return "DDA"
+        return "DDA"
 
 # check if target m/z falls within SIM window defined in filter string
 def target_in_sim_window(spectrum, target_mz):
@@ -79,48 +87,49 @@ def read_xic(
 
     tol_da = ppm_to_da(target_mz, ppm)
 
-    with mzml.read(mzml_file) as reader:
+    with open_mzml_file(mzml_file) as infile:
+        with mzml.read(infile) as reader:
 
-        for spectrum in reader:
-
-            if spectrum.get("ms level", 1) != 1:
-                continue
-
-            scan_number = int(spectrum["id"].split("=")[-1])
-
-            if scan_range and not (
-                scan_range[0] <= scan_number <= scan_range[1]
-            ):
-                continue
-
-            # PRM/SIM restriction
-            if mode == "PRM":
-
-                if not target_in_sim_window(spectrum, target_mz):
+            for spectrum in reader:
+    
+                if spectrum.get("ms level", 1) != 1:
                     continue
-
-            mz_array = spectrum["m/z array"]
-            intensity_array = spectrum["intensity array"]
-
-            mask = (
-                (mz_array >= target_mz - tol_da)
-                & (mz_array <= target_mz + tol_da)
-            )
-
-            xic_intensity = intensity_array[mask].sum()
-
-            if normalized:
-
-                try:
-                    scan = spectrum["scanList"]["scan"][0]
-                    inj_time = scan.get("ion injection time", 1) or 1
-                except Exception:
-                    inj_time = 1
-
-                xic_intensity /= inj_time
-
-            scan_numbers.append(scan_number)
-            intensities.append(xic_intensity)
+    
+                scan_number = int(spectrum["id"].split("=")[-1])
+    
+                if scan_range and not (
+                    scan_range[0] <= scan_number <= scan_range[1]
+                ):
+                    continue
+    
+                # PRM/SIM restriction
+                if mode == "PRM":
+    
+                    if not target_in_sim_window(spectrum, target_mz):
+                        continue
+    
+                mz_array = spectrum["m/z array"]
+                intensity_array = spectrum["intensity array"]
+    
+                mask = (
+                    (mz_array >= target_mz - tol_da)
+                    & (mz_array <= target_mz + tol_da)
+                )
+    
+                xic_intensity = intensity_array[mask].sum()
+    
+                if normalized:
+    
+                    try:
+                        scan = spectrum["scanList"]["scan"][0]
+                        inj_time = scan.get("ion injection time", 1) or 1
+                    except Exception:
+                        inj_time = 1
+    
+                    xic_intensity /= inj_time
+    
+                scan_numbers.append(scan_number)
+                intensities.append(xic_intensity)
 
     return scan_numbers, np.array(intensities)
 
@@ -139,56 +148,57 @@ def compute_mass_deltas(
 
     tol_da = ppm_to_da(target_mz, ppm)
 
-    with mzml.read(mzml_file) as reader:
+    with open_mzml_file(mzml_file) as infile:
+        with mzml.read(infile) as reader:
 
-        for spectrum in reader:
-
-            if spectrum.get("ms level", 1) != 1:
-                continue
-
-            scan_number = int(spectrum["id"].split("=")[-1])
-
-            if scan_range and not (
-                scan_range[0] <= scan_number <= scan_range[1]
-            ):
-                continue
-
-            # PRM restriction
-            if mode == "PRM":
-
-                if not target_in_sim_window(spectrum, target_mz):
+            for spectrum in reader:
+    
+                if spectrum.get("ms level", 1) != 1:
                     continue
-
-            mz_array = spectrum["m/z array"]
-            intensity_array = spectrum["intensity array"]
-
-            mask = (
-                (mz_array >= target_mz - tol_da)
-                & (mz_array <= target_mz + tol_da)
-            )
-
-            if not np.any(mask):
-                continue
-
-            mz_vals = mz_array[mask]
-            int_vals = intensity_array[mask]
-
-            total_intensity = int_vals.sum()
-
-            if total_intensity == 0:
-                continue
-
-            observed_mz = np.sum(mz_vals * int_vals) / total_intensity
-
-            delta_ppm = (
-                (observed_mz - target_mz)
-                / target_mz
-                * 1e6
-            )
-
-            scan_numbers.append(scan_number)
-            delta_ppms.append(delta_ppm)
-            signals.append(total_intensity)
+    
+                scan_number = int(spectrum["id"].split("=")[-1])
+    
+                if scan_range and not (
+                    scan_range[0] <= scan_number <= scan_range[1]
+                ):
+                    continue
+    
+                # PRM restriction
+                if mode == "PRM":
+    
+                    if not target_in_sim_window(spectrum, target_mz):
+                        continue
+    
+                mz_array = spectrum["m/z array"]
+                intensity_array = spectrum["intensity array"]
+    
+                mask = (
+                    (mz_array >= target_mz - tol_da)
+                    & (mz_array <= target_mz + tol_da)
+                )
+    
+                if not np.any(mask):
+                    continue
+    
+                mz_vals = mz_array[mask]
+                int_vals = intensity_array[mask]
+    
+                total_intensity = int_vals.sum()
+    
+                if total_intensity == 0:
+                    continue
+    
+                observed_mz = np.sum(mz_vals * int_vals) / total_intensity
+    
+                delta_ppm = (
+                    (observed_mz - target_mz)
+                    / target_mz
+                    * 1e6
+                )
+    
+                scan_numbers.append(scan_number)
+                delta_ppms.append(delta_ppm)
+                signals.append(total_intensity)
 
     return scan_numbers, delta_ppms, signals
 
@@ -219,36 +229,37 @@ def read_tic(
     scan_numbers = []
     intensities = []
 
-    with mzml.read(mzml_file) as reader:
+    with open_mzml_file(mzml_file) as infile:
+        with mzml.read(infile) as reader:
 
-        for spectrum in reader:
-
-            if spectrum.get("ms level", 1) != 1:
-                continue
-
-            scan_number = int(spectrum["id"].split("=")[-1])
-
-            if scan_range and not (
-                scan_range[0] <= scan_number <= scan_range[1]
-            ):
-                continue
-
-            intensity_array = spectrum["intensity array"]
-
-            tic_intensity = intensity_array.sum()
-
-            if normalized:
-
-                try:
-                    scan = spectrum["scanList"]["scan"][0]
-                    inj_time = scan.get("ion injection time", 1) or 1
-                except Exception:
-                    inj_time = 1
-
-                tic_intensity /= inj_time
-
-            scan_numbers.append(scan_number)
-            intensities.append(tic_intensity)
+            for spectrum in reader:
+    
+                if spectrum.get("ms level", 1) != 1:
+                    continue
+    
+                scan_number = int(spectrum["id"].split("=")[-1])
+    
+                if scan_range and not (
+                    scan_range[0] <= scan_number <= scan_range[1]
+                ):
+                    continue
+    
+                intensity_array = spectrum["intensity array"]
+    
+                tic_intensity = intensity_array.sum()
+    
+                if normalized:
+    
+                    try:
+                        scan = spectrum["scanList"]["scan"][0]
+                        inj_time = scan.get("ion injection time", 1) or 1
+                    except Exception:
+                        inj_time = 1
+    
+                    tic_intensity /= inj_time
+    
+                scan_numbers.append(scan_number)
+                intensities.append(tic_intensity)
 
     return scan_numbers, np.array(intensities)
 
@@ -266,47 +277,48 @@ def read_injection_time(
 
     tol_da = ppm_to_da(target_mz, ppm)
 
-    with mzml.read(mzml_file) as reader:
+    with open_mzml_file(mzml_file) as infile:
+        with mzml.read(infile) as reader:
 
-        for spectrum in reader:
-
-            if spectrum.get("ms level", 1) != 1:
-                continue
-
-            scan_number = int(spectrum["id"].split("=")[-1])
-
-            if scan_range and not (
-                scan_range[0] <= scan_number <= scan_range[1]
-            ):
-                continue
-
-            if mode == "PRM":
-
-                if not target_in_sim_window(spectrum, target_mz):
+            for spectrum in reader:
+    
+                if spectrum.get("ms level", 1) != 1:
                     continue
-
-            mz_array = spectrum["m/z array"]
-            intensity_array = spectrum["intensity array"]
-
-            mask = (
-                (mz_array >= target_mz - tol_da)
-                & (mz_array <= target_mz + tol_da)
-            )
-
-            if intensity_array[mask].sum() == 0:
-                continue
-
-            try:
-                scan = spectrum["scanList"]["scan"][0]
-                inj_time = scan.get("ion injection time")
-            except Exception:
-                continue
-
-            if inj_time is None:
-                continue
-
-            scan_numbers.append(scan_number)
-            injection_times.append(float(inj_time))
+    
+                scan_number = int(spectrum["id"].split("=")[-1])
+    
+                if scan_range and not (
+                    scan_range[0] <= scan_number <= scan_range[1]
+                ):
+                    continue
+    
+                if mode == "PRM":
+    
+                    if not target_in_sim_window(spectrum, target_mz):
+                        continue
+    
+                mz_array = spectrum["m/z array"]
+                intensity_array = spectrum["intensity array"]
+    
+                mask = (
+                    (mz_array >= target_mz - tol_da)
+                    & (mz_array <= target_mz + tol_da)
+                )
+    
+                if intensity_array[mask].sum() == 0:
+                    continue
+    
+                try:
+                    scan = spectrum["scanList"]["scan"][0]
+                    inj_time = scan.get("ion injection time")
+                except Exception:
+                    continue
+    
+                if inj_time is None:
+                    continue
+    
+                scan_numbers.append(scan_number)
+                injection_times.append(float(inj_time))
 
     return scan_numbers, injection_times
 
