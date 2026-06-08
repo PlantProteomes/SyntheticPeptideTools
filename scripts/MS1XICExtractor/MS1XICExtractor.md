@@ -26,7 +26,7 @@ py MS1XICExtractor.py
   --mzml_file ..\example\example.mzML.gz 
   --output_file output.pdf 
   --modifications "TargetPeptide:657.314, Aluminum:669.293" 
-  --scan_range "1420,1520" 
+  --scan_range "13500,14000" 
   --xic_ppm 4 
   --delta_ppm 15
 
