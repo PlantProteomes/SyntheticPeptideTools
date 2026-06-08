@@ -12,7 +12,6 @@ You can run two scripts in this directory:
 | -------- | ----------- | ------- | ------- |
 | `--mzml_file` | Filepath of mzML file for analysis. | Required | "C:\data\ms_run.mzML" |
 | `--sequence` | Sequence of main peptide. | Required | "AQDSQVLEEER\[Label:13C(6)15N(4)]" |
-| `--charge` | Most common charge of peptide. This is required to find the most intense MS1 scan with a peak corresponding to the peptide's precursor m/z. | Required | 2 |
 | `--ms2_fragment_tolerance` | Tolerance used to search for MS2 fragment ions. This is used during localization of the peptide. | 20 | 10 |
 | `--ms1_precursor_tolerance` | Tolerance used to search for modifications to the peptide and precursor intensities. | 10 | 5 |
 | `--run_type` | Type of MS run (DDA or PRM). | Required | "DDA" |
@@ -26,8 +25,8 @@ You can run two scripts in this directory:
 - "total ion current": The total ion current of all peaks in the MS2 spectrum.
 - "precursor m/z": The mass-to-charge ratio of the identified precursor ion.
 - "precursor charge": The identified charge of the precursor ion.
-- "maximum precursor intensity": The intensity of the peak with the closest m/z to the precursor from within the tolerance window of the precursor m/z is calculated for each of the +/- 10 MS1 spectra from the precursor MS1 scan. The maximum of those values is found and returned in this column. Note that this is not equivalent to the intensity calculated via XIC extraction which is a summation of all peak intensities within the m/z tolerance window.
-- "relative intensity": The intensity relative to the MS1 scan that has the greatest magnitude base peak within the tolerance window of the main peptide m/z across all MS1 scans in the MS run. Additionally, it should be noted that the first row of this file represents the most intense MS1 spectrum in question.
+- "maximum precursor intensity": The intensity of the peak with the closest m/z to the precursor from within the tolerance window of the precursor m/z is calculated for each of the +/- 10 MS1 spectra from the precursor MS1 scan. The maximum of those values is found and returned in this column. Note that this is not equivalent to the intensity calculated via XIC extraction which is a summation of all peak intensities within the m/z tolerance window. The precursor m/z is calculated by testing possible charges from z=1-4 and determining which m/z produces the greatest intensity across all scans.
+- "relative intensity": The intensity relative to the MS1 scan that has the greatest magnitude peak that is the closest to the precursor m/z within the tolerance window of the main peptide m/z across all MS1 scans in the MS run. Additionally, it should be noted that the first row of this file represents the most intense MS1 spectrum in question.
 - "signal to noise ratio": This ratio is calculated crudely for each MS2 spectrum by taking the average of the second and third most intense peaks and dividing it by the average of the least and the second-to-least intense peaks in the spectrum.
 - "precursor mass delta": The observed difference in mass between the precursor ion and the main peptide ion.
 - "predicted mass delta": The mass delta resulting from the program's predicted modification, if any.
