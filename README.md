@@ -7,7 +7,7 @@ MS2VariantFinder attempts to identify all MS2 spectra in an MS run based on the 
 For more information, please consult [MS2VariantFinder.md](https://github.com/PlantProteomes/SyntheticPeptideTools/blob/main/scripts/MS2VariantFinder/MS2VariantFinder.md).
 ## MS1XICExtractor
 MS1XICExtractor creates extracted ion chromatograms (XICs) to analyze the abundance of various precursor ions and, based on either MS1 full range scans or SIM scans, generates corresponding XIC plots, mass accuracy deviations, total ion current, and ion injection time trends.
-For more information, please consult [MS1XICExtractor.md](https://github.com/PlantProteomes/SyntheticPeptideTools/blob/main/scripts/MS1XICExtractor.md).
+For more information, please consult [MS1XICExtractor.md](https://github.com/PlantProteomes/SyntheticPeptideTools/blob/main/scripts/MS1XICExtractor/MS1XICExtractor.md).
 
 # Installation 
 ## Clone the repository 
