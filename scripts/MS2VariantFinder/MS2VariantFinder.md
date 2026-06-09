@@ -64,3 +64,5 @@ You can run two scripts in this directory:
 
 `generate_stdev_plot.py` will output a .png image as a graph with the standard deviation score on the y-axis and the deviance from the expected mass delta on the x-axis. Additionally, the 10% increase threshold is plotted as a dotted horizontal line. The modification mass with the lowest score is plotted as a labelled star at the vertex of the graph, and the bounds of the modification uncertainty are marked at the intersection between the horizontal line threshold and the V-shaped curve.
 
+## Example running instructions
+`py -m scripts.generate_ms2_table --mzml_file "data\example.mzML.gz" --sequence AQDSQVLEEER[Label:13C(6)15N(4)] --run_type PRM --modifications Oxidation Cation:Na Cation:Al[III] Delta:H(2)C(2) Formyl Cation:Ca[II] Cation:Fe[III] --output "data\example_output.csv"`
