@@ -15,6 +15,7 @@ You can run two scripts in this directory:
 | `--ms2_fragment_tolerance` | Tolerance used to search for MS2 fragment ions. This is used during localization of the peptide. | 20 | 10 |
 | `--ms1_precursor_tolerance` | Tolerance used to search for modifications to the peptide and precursor intensities. | 10 | 5 |
 | `--run_type` | Type of MS run (DDA or PRM). | Required | "DDA" |
+| `--modifications` | Space-sparated list of modifications specified in PRM method. | Required (PRM only) | "Cation:Al\[III] Delta:H(2)C(2) Cation:Na" |
 | `--output` | Output file name. The program will output two files: "\[output].csv" and "\[output]\_intensities.csv". | Required | "output.csv" OR "output" |
 
 `generate_ms2_table.py` will output two files: "\[output].csv" and "\[output]\_intensities.csv".
@@ -65,4 +66,4 @@ You can run two scripts in this directory:
 `generate_stdev_plot.py` will output a .png image as a graph with the standard deviation score on the y-axis and the deviance from the expected mass delta on the x-axis. Additionally, the 10% increase threshold is plotted as a dotted horizontal line. The modification mass with the lowest score is plotted as a labelled star at the vertex of the graph, and the bounds of the modification uncertainty are marked at the intersection between the horizontal line threshold and the V-shaped curve.
 
 ## Example running instructions
-`py -m scripts.generate_ms2_table --mzml_file "data\example.mzML.gz" --sequence AQDSQVLEEER[Label:13C(6)15N(4)] --run_type PRM --modifications Oxidation Cation:Na Cation:Al[III] Delta:H(2)C(2) Formyl Cation:Ca[II] Cation:Fe[III] --output "data\example_output.csv"`
+`py -m scripts.generate_ms2_table --mzml_file example\example.mzML.gz --sequence AQDSQVLEEER[Label:13C(6)15N(4)] --run_type PRM --modifications Oxidation Cation:Na Cation:Al[III] Delta:H(2)C(2) Formyl Cation:Ca[II] Cation:Fe[III] --output example\example_output.csv`
